@@ -1,0 +1,21 @@
+{
+  "short_name": "AI Vitamin",
+  "name": "HT사업본부 AI Vitamin Program",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0EA5E9",
+  "display": "standalone",
+  "orientation": "portrait"
+}
