@@ -4,15 +4,15 @@ import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage } from '@/lib/types';
-import { getCurrentUser, getPraises, togglePraiseLike } from '@/lib/db';
+import { getCurrentUser, getPraises } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Heart, MessageSquare, ArrowLeft, Sparkles, Smile, Share2 } from 'lucide-react';
+import { Heart, MessageSquare, ArrowLeft, Sparkles, Smile } from 'lucide-react';
 
 export default function WallPage() {
   const [currentUser, setUserState] = useState<User | null>(null);
   const [praises, setPraises] = useState<PraiseMessage[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'recent'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'recent'>('all');
   const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
@@ -30,23 +30,8 @@ export default function WallPage() {
     loadData();
   }, []);
 
-  const handleLikeToggle = async (praiseId: string) => {
-    if (!currentUser) return;
-    const res = await togglePraiseLike(praiseId, currentUser.id);
-    if (res.error === 'SUPABASE_UNCONFIGURED') {
-      setConfigError(true);
-      return;
-    }
-    if (res.praise) {
-      setPraises(prev => prev.map(p => p.id === praiseId ? res.praise! : p));
-    }
-  };
-
   const getFilteredPraises = () => {
     const list = [...praises];
-    if (activeTab === 'popular') {
-      return list.sort((a, b) => b.likes - a.likes);
-    }
     if (activeTab === 'recent') {
       return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
@@ -91,23 +76,13 @@ export default function WallPage() {
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            전체
-          </button>
-          <button
-            onClick={() => setActiveTab('popular')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'popular'
-                ? 'bg-white text-purple-600 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            인기
+            전체 ({praises.length})
           </button>
           <button
             onClick={() => setActiveTab('recent')}
             className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'recent'
-                ? 'bg-white text-blue-600 shadow-xs'
+                ? 'bg-white text-purple-600 shadow-xs'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -122,63 +97,51 @@ export default function WallPage() {
               아직 도착한 칭찬 메시지가 없습니다. 첫 번째 비타민을 보내보세요!
             </div>
           ) : (
-            filteredPraises.map((praise, idx) => {
-              const isLikedByMe = currentUser ? praise.likedBy?.includes(currentUser.id) : false;
-
-              return (
-                <motion.div
-                  key={praise.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3 relative overflow-hidden"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 text-white font-bold text-xs flex items-center justify-center">
-                        {praise.recipientName.substring(0, 1)}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-black text-slate-900">
-                          {praise.recipientName}님
-                        </h4>
-                        {praise.recipientTeam && (
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {praise.recipientTeam}
-                          </span>
-                        )}
-                      </div>
+            filteredPraises.map((praise, idx) => (
+              <motion.div
+                key={praise.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3 relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 text-white font-bold text-xs flex items-center justify-center">
+                      {praise.recipientName.substring(0, 1)}
                     </div>
-
-                    <span className="px-2.5 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full">
-                      {praise.isMatePraise ? '익명의 Vitamin Mate' : '익명의 동료'}
-                    </span>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">
+                        {praise.recipientName}님
+                      </h4>
+                      {praise.recipientTeam && (
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {praise.recipientTeam}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="text-xs font-bold text-slate-800 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                    &ldquo;{praise.refinedContent || praise.content}&rdquo;
-                  </p>
+                  <span className="px-2.5 py-1 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-full">
+                    {praise.isMatePraise ? '익명의 Vitamin Mate' : '익명의 동료'}
+                  </span>
+                </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {new Date(praise.createdAt).toLocaleDateString()}
-                    </span>
+                <p className="text-xs font-bold text-slate-800 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                  &ldquo;{praise.refinedContent || praise.content}&rdquo;
+                </p>
 
-                    <button
-                      onClick={() => handleLikeToggle(praise.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                        isLikedByMe
-                          ? 'bg-pink-100 text-pink-600 scale-105'
-                          : 'bg-slate-100 text-slate-500 hover:bg-pink-50 hover:text-pink-500'
-                      }`}
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isLikedByMe ? 'fill-pink-500 text-pink-500' : ''}`} />
-                      <span>{praise.likes}</span>
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {new Date(praise.createdAt).toLocaleDateString()}
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 text-[10px] text-pink-500 font-bold bg-pink-50 px-2 py-0.5 rounded-full">
+                    <Heart className="w-3 h-3 fill-pink-500" /> 비타민 전달됨
+                  </span>
+                </div>
+              </motion.div>
+            ))
           )}
         </div>
       </div>

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
-import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS } from '@/lib/seedData';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -15,36 +14,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
     
     // Fetch assignments for this user only
-    let { data: assignments, error } = await supabase
+    const { data: assignments, error } = await supabase
       .from('mate_assignments')
       .select('target_user_id')
       .eq('user_id', userId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Auto-seed initial mate assignments if table is empty
-    if (!assignments || assignments.length === 0) {
-      const { count } = await supabase.from('mate_assignments').select('*', { count: 'exact', head: true });
-      if (count === 0) {
-        await supabase.from('mate_assignments').insert(
-          INITIAL_MATE_ASSIGNMENTS.map(a => ({
-            id: a.id,
-            user_id: a.userId,
-            target_user_id: a.targetUserId,
-            assigned_at: a.assignedAt
-          }))
-        );
-        const reFetch = await supabase
-          .from('mate_assignments')
-          .select('target_user_id')
-          .eq('user_id', userId);
-        assignments = reFetch.data || [];
-      }
     }
 
     const targetUserIds = (assignments || []).map(a => a.target_user_id);
@@ -55,7 +34,7 @@ export async function GET(request: Request) {
     // Fetch user details for targetUserIds
     const { data: mates, error: usersErr } = await supabase
       .from('users')
-      .select('*')
+      .select('id, code, name, team, avatar, role')
       .in('id', targetUserIds);
 
     if (usersErr) {

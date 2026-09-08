@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -7,7 +7,7 @@ export async function GET() {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from('app_state')
       .select('value')
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
   try {
     const { active } = await request.json();
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
 
     const { error } = await supabase
       .from('app_state')

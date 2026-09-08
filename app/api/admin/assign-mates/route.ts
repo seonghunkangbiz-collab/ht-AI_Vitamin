@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function POST() {
   if (!isSupabaseConfigured()) {
@@ -7,26 +7,27 @@ export async function POST() {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
 
-    // Fetch all non-admin users
+    // Fetch all non-admin users from Supabase users table
     const { data: users, error: usersErr } = await supabase
       .from('users')
-      .select('*')
+      .select('id, code, name, team, role')
       .neq('role', 'admin');
 
     if (usersErr || !users || users.length === 0) {
-      return NextResponse.json({ error: 'No users found to assign mates' }, { status: 400 });
+      return NextResponse.json({ error: '배정 가능한 사용자가 없습니다. 먼저 사용자를 등록하세요.' }, { status: 400 });
     }
 
-    // Delete existing mate assignments
-    await supabase.from('mate_assignments').delete().neq('id', 'keep-all');
+    // Delete existing mate assignments from Supabase
+    await supabase.from('mate_assignments').delete().neq('id', 'keep-all-placeholder');
 
     const newAssignments: Array<{ id: string; user_id: string; target_user_id: string; assigned_at: string }> = [];
     const now = new Date().toISOString();
 
     users.forEach((user) => {
-      // Find candidates from different teams first
+      // 1. Exclude self & admin
+      // 2. Prioritize different team
       let candidates = users.filter(u => u.id !== user.id && u.team !== user.team);
       if (candidates.length < 2) {
         candidates = users.filter(u => u.id !== user.id);
@@ -38,7 +39,7 @@ export async function POST() {
 
       selected.forEach(target => {
         newAssignments.push({
-          id: `m-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          id: `m-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           user_id: user.id,
           target_user_id: target.id,
           assigned_at: now

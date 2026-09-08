@@ -1,8 +1,8 @@
 import { User, PrivateNote, PraiseMessage } from './types';
 
-const STORAGE_CURRENT_USER_KEY = 'ai_vitamin_current_user_v1';
+const STORAGE_CURRENT_USER_KEY = 'ai_vitamin_session_v1';
 
-// Client-side Session Management (only for current logged in user profile in browser)
+// Client-side Session Management (only minimal login identity in browser)
 export async function getCurrentUser(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
   try {
@@ -17,7 +17,16 @@ export async function setCurrentUser(user: User | null): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     if (user) {
-      window.localStorage.setItem(STORAGE_CURRENT_USER_KEY, JSON.stringify(user));
+      // Store minimal identity: id, code, name, team, role
+      const sessionObj = {
+        id: user.id,
+        code: user.code,
+        name: user.name,
+        team: user.team,
+        avatar: user.avatar,
+        role: user.role
+      };
+      window.localStorage.setItem(STORAGE_CURRENT_USER_KEY, JSON.stringify(sessionObj));
     } else {
       window.localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
     }
@@ -143,18 +152,14 @@ export async function addPraise(
   }
 }
 
-export async function togglePraiseLike(praiseId: string, userId: string): Promise<{ praise?: PraiseMessage; error?: string }> {
+export async function deletePraiseMessage(id: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/praises/like', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ praiseId, userId })
-    });
+    const res = await fetch(`/api/praises?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
     }
-    return { praise: data.praise };
+    return { success: true };
   } catch (e: any) {
     return { error: e.message };
   }

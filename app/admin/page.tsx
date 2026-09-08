@@ -11,7 +11,8 @@ import {
   getIsRevealActive, 
   toggleRevealActive, 
   assignRandomMatesCrossTeam,
-  seedSupabaseData 
+  seedSupabaseData,
+  deletePraiseMessage
 } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -24,7 +25,9 @@ import {
   CheckCircle, 
   AlertCircle,
   ArrowLeft,
-  Database
+  Database,
+  Trash2,
+  Lock
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -34,28 +37,31 @@ export default function AdminPage() {
   const [isRevealActive, setIsRevealActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [configError, setConfigError] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       const user = await getCurrentUser();
       setUserState(user);
 
-      const allUsersRes = await getAllUsers();
-      if (allUsersRes.error === 'SUPABASE_UNCONFIGURED') {
-        setConfigError(true);
-        return;
-      }
-      setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
+      if (user && user.role === 'admin') {
+        const allUsersRes = await getAllUsers();
+        if (allUsersRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
 
-      const allPraisesRes = await getPraises(true);
-      if (allPraisesRes.error === 'SUPABASE_UNCONFIGURED') {
-        setConfigError(true);
-        return;
-      }
-      setPraises(allPraisesRes.praises || []);
+        const allPraisesRes = await getPraises(true);
+        if (allPraisesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setPraises(allPraisesRes.praises || []);
 
-      const reveal = await getIsRevealActive();
-      setIsRevealActive(reveal);
+        const reveal = await getIsRevealActive();
+        setIsRevealActive(reveal);
+      }
     }
     loadData();
   }, []);
@@ -70,13 +76,11 @@ export default function AdminPage() {
       showStatus(`시드 오류: ${res.error}`);
       return;
     }
-    showStatus('Supabase 공용 DB에 초기 24명 임직원 및 샘플 데이터 시드가 완료되었습니다!');
+    showStatus('Supabase 공용 DB에 초기 24명 임직원 데이터 저장이 완료되었습니다!');
     
-    // Refresh list
+    // Refresh user list
     const allUsersRes = await getAllUsers();
     setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
-    const allPraisesRes = await getPraises(true);
-    setPraises(allPraisesRes.praises || []);
   };
 
   const handleToggleReveal = async () => {
@@ -86,7 +90,8 @@ export default function AdminPage() {
     showStatus(nextState ? 'Reveal Day가 공개되었습니다! 🎁' : 'Reveal Day가 비공개 상태로 변경되었습니다.');
   };
 
-  const handleShuffleMates = async () => {
+  const handleConfirmShuffleMates = async () => {
+    setShowConfirmModal(false);
     const res = await assignRandomMatesCrossTeam();
     if (res.error === 'SUPABASE_UNCONFIGURED') {
       setConfigError(true);
@@ -96,14 +101,25 @@ export default function AdminPage() {
       showStatus(`배정 오류: ${res.error}`);
       return;
     }
-    showStatus(`24명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 Supabase DB에 저장되었습니다!`);
+    showStatus(`24명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 완료되었습니다!`);
+  };
+
+  const handleDeletePraise = async (id: string) => {
+    if (!window.confirm('이 칭찬 메시지를 부적절 내용으로 판단하여 삭제하시겠습니까?')) return;
+    const res = await deletePraiseMessage(id);
+    if (res.error) {
+      showStatus(`삭제 실패: ${res.error}`);
+      return;
+    }
+    setPraises(prev => prev.filter(p => p.id !== id));
+    showStatus('메시지가 삭제 처리되었습니다.');
   };
 
   const handleExportCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'ID,수신자,수신팀,칭찬내용,좋아요수,작성일시\n';
+    csvContent += 'ID,작성자ID(관리자),수신자,수신팀,칭찬내용,작성일시\n';
     praises.forEach(p => {
-      const row = `"${p.id}","${p.recipientName}","${p.recipientTeam || ''}","${p.refinedContent || p.content}",${p.likes},"${p.createdAt}"`;
+      const row = `"${p.id}","${p.senderUserId || ''}","${p.recipientName}","${p.recipientTeam || ''}","${p.refinedContent || p.content}","${p.createdAt}"`;
       csvContent += row + '\n';
     });
 
@@ -131,15 +147,26 @@ export default function AdminPage() {
     );
   }
 
+  // Requirement #12: Role Protection for Admin Page
   if (!currentUser || currentUser.role !== 'admin') {
     return (
       <MobileLayout>
-        <div className="p-8 text-center flex flex-col items-center gap-3">
-          <AlertCircle className="w-10 h-10 text-amber-500" />
-          <h3 className="font-bold text-slate-800">관리자 권한이 필요합니다</h3>
-          <p className="text-xs text-slate-500">
-            참여코드 <code className="bg-slate-200 px-2 py-0.5 rounded font-mono">VIT-ADMIN</code> 계정으로 로그인해 주세요.
+        <div className="p-8 text-center flex flex-col items-center justify-center min-h-[60vh] gap-3">
+          <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h3 className="text-base font-extrabold text-slate-900">
+            접근 권한이 없습니다
+          </h3>
+          <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+            운영자(role=admin) 전용 화면입니다. 참여코드 <code className="bg-slate-200 px-2 py-0.5 rounded font-mono font-bold text-slate-800">VIT-ADMIN</code> 계정으로 로그인해 주세요.
           </p>
+          <Link
+            href="/"
+            className="mt-2 py-2.5 px-5 bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs"
+          >
+            홈으로 돌아가기
+          </Link>
         </div>
       </MobileLayout>
     );
@@ -174,24 +201,24 @@ export default function AdminPage() {
 
         {/* Action Controls */}
         <div className="grid grid-cols-1 gap-3">
-          {/* Seed Data Button */}
+          {/* Seed Initial Data */}
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-indigo-600" />
-                Supabase 초기 데이터 시드
+                24명 임직원 데이터 초기 등록
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium">24명 임직원 기본 등록</span>
+              <span className="text-[10px] text-slate-400 font-medium">Supabase 등록</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              Supabase DB가 비어있는 경우 초기 24명 HT사업본부 유저와 시드 데이터를 주입합니다.
+              HT사업본부 24명 임직원 프로필과 참여코드를 Supabase DB에 등록합니다.
             </p>
             <button
               onClick={handleSeedData}
               className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
             >
               <Database className="w-4 h-4" />
-              <span>Supabase DB 초기 시드 실행</span>
+              <span>초기 24명 데이터 저장 실행</span>
             </button>
           </div>
 
@@ -205,10 +232,10 @@ export default function AdminPage() {
               <span className="text-[10px] text-slate-400 font-medium">1인당 2명 자동매칭</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              HT사업본부 24명 대상 타 부서 임직원을 우선하여 Mystery Mate 2명을 랜덤으로 새로 배정합니다.
+              HT사업본부 대상 타 부서 임직원을 우선하여 Mystery Mate 2명을 배정합니다.
             </p>
             <button
-              onClick={handleShuffleMates}
+              onClick={() => setShowConfirmModal(true)}
               className="w-full py-3 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
             >
               <Shuffle className="w-4 h-4" />
@@ -255,7 +282,7 @@ export default function AdminPage() {
               <span className="text-[10px] text-slate-400 font-medium">총 {praises.length}건 칭찬</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              수집된 전체 Vitamin Wall 칭찬 메시지와 공감(좋아요) 수치를 CSV로 저장합니다.
+              수집된 전체 Vitamin Wall 칭찬 메시지 데이터를 CSV 파일로 추출합니다.
             </p>
             <button
               onClick={handleExportCSV}
@@ -264,6 +291,40 @@ export default function AdminPage() {
               <Download className="w-4 h-4" />
               <span>칭찬 데이터 CSV 다운로드</span>
             </button>
+          </div>
+        </div>
+
+        {/* Praise Moderation Section */}
+        <div className="flex flex-col gap-3 mt-2">
+          <h3 className="text-xs font-extrabold text-slate-900 flex items-center justify-between">
+            <span>게시된 칭찬 메시지 관리 ({praises.length}건)</span>
+          </h3>
+
+          <div className="flex flex-col gap-2">
+            {praises.length === 0 ? (
+              <div className="p-4 text-center bg-white rounded-2xl text-xs text-slate-400">
+                등록된 칭찬 메시지가 없습니다.
+              </div>
+            ) : (
+              praises.map(p => (
+                <div key={p.id} className="p-3.5 bg-white rounded-2xl border border-slate-100 shadow-xs flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      수신: <span className="text-blue-600">{p.recipientName}님</span> ({p.recipientTeam})
+                    </span>
+                    <button
+                      onClick={() => handleDeletePraise(p.id)}
+                      className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center gap-0.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> 삭제
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-xl">
+                    &ldquo;{p.refinedContent || p.content}&rdquo;
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -292,6 +353,40 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Mystery Mate Re-assignment (Requirement #7) */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-base">Mystery Mate 재배정 확인</h3>
+              <p className="text-xs text-amber-700 font-bold mt-1">
+                &ldquo;기존 Mystery Mate 배정이 모두 변경됩니다.&rdquo;
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                전체 24명 임직원에게 새로운 타팀 Mystery Mate 2명이 새로 랜덤 매칭됩니다. 계속하시겠습니까?
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirmShuffleMates}
+                className="flex-1 py-3 bg-sky-600 text-white text-xs font-bold rounded-xl shadow-xs"
+              >
+                새로 배정하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MobileLayout>
   );
 }

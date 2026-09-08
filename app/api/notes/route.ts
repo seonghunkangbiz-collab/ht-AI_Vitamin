@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
-import { INITIAL_NOTES } from '@/lib/seedData';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -15,8 +14,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = getSupabaseClient();
-    let { data: notes, error } = await supabase
+    const supabase = getSupabaseServerClient();
+    const { data: notes, error } = await supabase
       .from('private_notes')
       .select('*')
       .eq('user_id', userId)
@@ -26,29 +25,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Auto-seed initial notes if empty
-    if (!notes || notes.length === 0) {
-      const { count } = await supabase.from('private_notes').select('*', { count: 'exact', head: true });
-      if (count === 0) {
-        await supabase.from('private_notes').insert(
-          INITIAL_NOTES.map(n => ({
-            id: n.id,
-            user_id: n.userId,
-            target_user_id: n.targetUserId,
-            content: n.content,
-            updated_at: n.updatedAt
-          }))
-        );
-        const reFetch = await supabase
-          .from('private_notes')
-          .select('*')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false });
-        notes = reFetch.data || [];
-      }
-    }
-
-    // Format for frontend
     const formattedNotes = (notes || []).map(n => ({
       id: n.id,
       userId: n.user_id,
@@ -74,7 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'userId and targetUserId required' }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
     const now = new Date().toISOString();
 
     // Check if existing note exists for user_id + target_user_id
