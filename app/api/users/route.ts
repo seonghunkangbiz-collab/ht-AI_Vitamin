@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { INITIAL_USERS } from '@/lib/seedData';
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -8,13 +9,23 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseServerClient();
-    const { data: users, error } = await supabase
+    let { data: users, error } = await supabase
       .from('users')
       .select('id, code, name, team, avatar, role')
       .order('name', { ascending: true });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Auto-seed initial 24 users if database is empty
+    if (!users || users.length === 0) {
+      await supabase.from('users').upsert(INITIAL_USERS);
+      const reFetch = await supabase
+        .from('users')
+        .select('id, code, name, team, avatar, role')
+        .order('name', { ascending: true });
+      users = reFetch.data || [];
     }
 
     return NextResponse.json({ users: users || [] });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { INITIAL_USERS } from '@/lib/seedData';
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -15,15 +16,33 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServerClient();
     const normalizedCode = code.trim().toUpperCase();
 
-    // Query user by participation code from Supabase
-    const { data: user, error } = await supabase
+    // 1. Query user by participation code from Supabase
+    let { data: user, error } = await supabase
       .from('users')
       .select('id, code, name, team, avatar, role')
       .eq('code', normalizedCode)
-      .single();
+      .maybeSingle();
 
-    if (error || !user) {
-      return NextResponse.json({ error: '올바르지 않은 참여코드입니다.' }, { status: 404 });
+    // 2. If user is not found, check if users table is empty or needs initial seed
+    if (!user) {
+      const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      if (count === 0 || normalizedCode === 'VIT-ADMIN') {
+        // Auto-seed initial 24 users + admin into Supabase users table
+        await supabase.from('users').upsert(INITIAL_USERS);
+        
+        // Retry fetching user after seed
+        const retry = await supabase
+          .from('users')
+          .select('id, code, name, team, avatar, role')
+          .eq('code', normalizedCode)
+          .maybeSingle();
+          
+        user = retry.data;
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: '올바르지 않은 참여코드입니다. (예: VIT-7F2A9 또는 VIT-ADMIN)' }, { status: 404 });
     }
 
     return NextResponse.json({ user });

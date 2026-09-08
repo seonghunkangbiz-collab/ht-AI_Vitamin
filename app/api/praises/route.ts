@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { INITIAL_PRAISES } from '@/lib/seedData';
 
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -11,13 +12,38 @@ export async function GET(request: Request) {
 
   try {
     const supabase = getSupabaseServerClient();
-    const { data: praises, error } = await supabase
+    let { data: praises, error } = await supabase
       .from('praise_messages')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Auto-seed initial sample praises if DB table is completely empty
+    if (!praises || praises.length === 0) {
+      const { count } = await supabase.from('praise_messages').select('*', { count: 'exact', head: true });
+      if (count === 0) {
+        await supabase.from('praise_messages').upsert(
+          INITIAL_PRAISES.map(p => ({
+            id: p.id,
+            sender_user_id: p.senderUserId,
+            recipient_user_id: p.recipientUserId,
+            recipient_name: p.recipientName,
+            recipient_team: p.recipientTeam,
+            content: p.content,
+            refined_content: p.refinedContent,
+            is_mate_praise: p.isMatePraise,
+            created_at: p.createdAt
+          }))
+        );
+        const reFetch = await supabase
+          .from('praise_messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        praises = reFetch.data || [];
+      }
     }
 
     // Format for frontend & STRICTLY STRIP sender_user_id for non-admin client security!
