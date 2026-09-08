@@ -12,22 +12,22 @@ export async function getCurrentUser(): Promise<User | null> {
     const localUser: User = JSON.parse(item);
     if (!localUser || !localUser.code) return localUser;
 
-    // Live sync user profile from Supabase using user code
-    const res = await fetch('/api/auth/login', {
+    // Asynchronous background sync from Supabase (non-blocking for immediate UI response)
+    fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: localUser.code }),
       cache: 'no-store'
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.user) {
-        // Update local session with latest name/team/avatar from Supabase Users table
-        setCurrentUser(data.user);
-        return data.user;
-      }
-    }
+    })
+      .then(async res => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
+        }
+      })
+      .catch(() => {});
 
     return localUser;
   } catch (e) {

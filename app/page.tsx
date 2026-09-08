@@ -24,6 +24,7 @@ import {
 
 export default function HomePage() {
   const [currentUser, setUserState] = useState<User | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<string>('');
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
@@ -33,27 +34,31 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadInitialData() {
-      const user = await getCurrentUser();
-      setUserState(user);
+      try {
+        const user = await getCurrentUser();
+        setUserState(user);
 
-      if (user) {
-        const matesRes = await getMatesForUser(user.id);
-        if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+        if (user) {
+          const matesRes = await getMatesForUser(user.id);
+          if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+            setConfigError(true);
+            return;
+          }
+          setMateCount((matesRes.mates || []).length);
+        }
+
+        const praisesRes = await getPraises();
+        if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
           setConfigError(true);
           return;
         }
-        setMateCount((matesRes.mates || []).length);
-      }
+        setRecentPraises((praisesRes.praises || []).slice(0, 3));
 
-      const praisesRes = await getPraises();
-      if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
-        setConfigError(true);
-        return;
+        // Initial AI Suggestion
+        loadSuggestion();
+      } finally {
+        setIsInitializing(false);
       }
-      setRecentPraises((praisesRes.praises || []).slice(0, 3));
-
-      // Initial AI Suggestion
-      loadSuggestion();
     }
     loadInitialData();
   }, []);
@@ -82,6 +87,14 @@ export default function HomePage() {
       <MobileLayout>
         <SupabaseConfigError />
       </MobileLayout>
+    );
+  }
+
+  if (isInitializing) {
+    return (
+      <div className="w-full max-w-[480px] min-h-screen bg-slate-50 relative flex items-center justify-center border-x border-slate-200/60">
+        <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
