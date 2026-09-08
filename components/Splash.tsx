@@ -85,7 +85,7 @@ export default function Splash({ onStart }: SplashProps) {
           </div>
           <div>
             <p className="font-semibold text-slate-700">참여코드로 접속</p>
-            <p className="text-[10px] text-slate-400">발급받으신 8자리 코드(예: VIT-7F2A9)를 입력하세요.</p>
+            <p className="text-[10px] text-slate-400">본인에게 발급된 개인 참여코드를 입력하세요.</p>
           </div>
         </div>
       </motion.div>
