@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage } from '@/lib/types';
 import { getCurrentUser, getPraises, togglePraiseLike } from '@/lib/db';
 import Link from 'next/link';
@@ -12,23 +13,32 @@ export default function WallPage() {
   const [currentUser, setUserState] = useState<User | null>(null);
   const [praises, setPraises] = useState<PraiseMessage[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'recent'>('all');
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       const user = await getCurrentUser();
       setUserState(user);
 
-      const list = await getPraises();
-      setPraises(list);
+      const listRes = await getPraises();
+      if (listRes.error === 'SUPABASE_UNCONFIGURED') {
+        setConfigError(true);
+        return;
+      }
+      setPraises(listRes.praises || []);
     }
     loadData();
   }, []);
 
   const handleLikeToggle = async (praiseId: string) => {
     if (!currentUser) return;
-    const updated = await togglePraiseLike(praiseId, currentUser.id);
-    if (updated) {
-      setPraises(prev => prev.map(p => p.id === praiseId ? updated : p));
+    const res = await togglePraiseLike(praiseId, currentUser.id);
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
+    if (res.praise) {
+      setPraises(prev => prev.map(p => p.id === praiseId ? res.praise! : p));
     }
   };
 
@@ -44,6 +54,14 @@ export default function WallPage() {
   };
 
   const filteredPraises = getFilteredPraises();
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout>

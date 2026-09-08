@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
-import { User, PraiseMessage, MateAssignment } from '@/lib/types';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
+import { User, PraiseMessage } from '@/lib/types';
 import { 
   getCurrentUser, 
   getAllUsers, 
   getPraises, 
   getIsRevealActive, 
   toggleRevealActive, 
-  assignRandomMatesCrossTeam 
+  assignRandomMatesCrossTeam,
+  seedSupabaseData 
 } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -19,10 +21,10 @@ import {
   Shuffle, 
   Sparkles, 
   Download, 
-  Trash2, 
   CheckCircle, 
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Database
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -31,23 +33,51 @@ export default function AdminPage() {
   const [praises, setPraises] = useState<PraiseMessage[]>([]);
   const [isRevealActive, setIsRevealActive] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       const user = await getCurrentUser();
       setUserState(user);
 
-      const allUsers = await getAllUsers();
-      setUsers(allUsers.filter(u => u.role !== 'admin'));
+      const allUsersRes = await getAllUsers();
+      if (allUsersRes.error === 'SUPABASE_UNCONFIGURED') {
+        setConfigError(true);
+        return;
+      }
+      setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
 
-      const allPraises = await getPraises();
-      setPraises(allPraises);
+      const allPraisesRes = await getPraises(true);
+      if (allPraisesRes.error === 'SUPABASE_UNCONFIGURED') {
+        setConfigError(true);
+        return;
+      }
+      setPraises(allPraisesRes.praises || []);
 
       const reveal = await getIsRevealActive();
       setIsRevealActive(reveal);
     }
     loadData();
   }, []);
+
+  const handleSeedData = async () => {
+    const res = await seedSupabaseData();
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
+    if (res.error) {
+      showStatus(`시드 오류: ${res.error}`);
+      return;
+    }
+    showStatus('Supabase 공용 DB에 초기 24명 임직원 및 샘플 데이터 시드가 완료되었습니다!');
+    
+    // Refresh list
+    const allUsersRes = await getAllUsers();
+    setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
+    const allPraisesRes = await getPraises(true);
+    setPraises(allPraisesRes.praises || []);
+  };
 
   const handleToggleReveal = async () => {
     const nextState = !isRevealActive;
@@ -57,8 +87,16 @@ export default function AdminPage() {
   };
 
   const handleShuffleMates = async () => {
-    const assignments = await assignRandomMatesCrossTeam();
-    showStatus(`24명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 완료되었습니다! (총 ${assignments.length}건 배정)`);
+    const res = await assignRandomMatesCrossTeam();
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
+    if (res.error) {
+      showStatus(`배정 오류: ${res.error}`);
+      return;
+    }
+    showStatus(`24명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 Supabase DB에 저장되었습니다!`);
   };
 
   const handleExportCSV = () => {
@@ -84,6 +122,14 @@ export default function AdminPage() {
     setStatusMessage(msg);
     setTimeout(() => setStatusMessage(null), 4000);
   };
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   if (!currentUser || currentUser.role !== 'admin') {
     return (
@@ -128,6 +174,27 @@ export default function AdminPage() {
 
         {/* Action Controls */}
         <div className="grid grid-cols-1 gap-3">
+          {/* Seed Data Button */}
+          <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-indigo-600" />
+                Supabase 초기 데이터 시드
+              </h3>
+              <span className="text-[10px] text-slate-400 font-medium">24명 임직원 기본 등록</span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              Supabase DB가 비어있는 경우 초기 24명 HT사업본부 유저와 시드 데이터를 주입합니다.
+            </p>
+            <button
+              onClick={handleSeedData}
+              className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
+            >
+              <Database className="w-4 h-4" />
+              <span>Supabase DB 초기 시드 실행</span>
+            </button>
+          </div>
+
           {/* Mystery Mate Assignment Button */}
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
             <div className="flex items-center justify-between">

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PrivateNote } from '@/lib/types';
 import { getCurrentUser, getMatesForUser, getNotesForUser, saveNote } from '@/lib/db';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ export default function MatePage() {
   const [editingMateId, setEditingMateId] = useState<string | null>(null);
   const [tempNote, setTempNote] = useState<string>('');
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -22,12 +24,20 @@ export default function MatePage() {
       setUserState(user);
 
       if (user) {
-        const assignedMates = await getMatesForUser(user.id);
-        setMates(assignedMates);
+        const matesRes = await getMatesForUser(user.id);
+        if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setMates(matesRes.mates || []);
 
-        const userNotes = await getNotesForUser(user.id);
+        const notesRes = await getNotesForUser(user.id);
+        if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
         const noteMap: Record<string, string> = {};
-        userNotes.forEach(n => {
+        (notesRes.notes || []).forEach(n => {
           noteMap[n.targetUserId] = n.content;
         });
         setNotes(noteMap);
@@ -43,12 +53,24 @@ export default function MatePage() {
 
   const handleSaveNote = async (targetUserId: string) => {
     if (!currentUser) return;
-    await saveNote(currentUser.id, targetUserId, tempNote);
+    const res = await saveNote(currentUser.id, targetUserId, tempNote);
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
     setNotes(prev => ({ ...prev, [targetUserId]: tempNote }));
     setEditingMateId(null);
     setSavedSuccess(targetUserId);
     setTimeout(() => setSavedSuccess(null), 3000);
   };
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   if (!currentUser) {
     return (

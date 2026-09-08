@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import MobileLayout from '@/components/MobileLayout';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User } from '@/lib/types';
 import { getCurrentUser, getAllUsers, addPraise } from '@/lib/db';
 import { fetchAIRefinedPraise } from '@/lib/aiService';
@@ -24,6 +25,7 @@ function ThanksForm() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSent, setIsSent] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -31,8 +33,12 @@ function ThanksForm() {
       setUserState(user);
 
       if (user) {
-        const users = await getAllUsers();
-        setAllUsers(users.filter(u => u.id !== user.id && u.role !== 'admin'));
+        const usersRes = await getAllUsers();
+        if (usersRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setAllUsers((usersRes.users || []).filter(u => u.id !== user.id && u.role !== 'admin'));
       }
     }
     loadData();
@@ -71,7 +77,7 @@ function ThanksForm() {
 
     setIsSubmitting(true);
     try {
-      await addPraise(
+      const res = await addPraise(
         currentUser.id,
         recipient.id,
         recipient.name,
@@ -79,6 +85,14 @@ function ThanksForm() {
         content,
         refinedContent || content
       );
+      if (res.error === 'SUPABASE_UNCONFIGURED') {
+        setConfigError(true);
+        return;
+      }
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
       setIsSent(true);
       setTimeout(() => {
         router.push('/wall');
@@ -89,6 +103,10 @@ function ThanksForm() {
       setIsSubmitting(false);
     }
   };
+
+  if (configError) {
+    return <SupabaseConfigError />;
+  }
 
   if (!currentUser) {
     return (

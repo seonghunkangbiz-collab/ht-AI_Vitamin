@@ -49,11 +49,25 @@ CREATE TABLE IF NOT EXISTS public.app_state (
   value JSONB NOT NULL
 );
 
--- Enable Row Level Security (RLS) policies (Optional)
+-- RLS Configuration & Permissive Policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mate_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.private_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.praise_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_state ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read access" ON public.users FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON public.praise_messages FOR SELECT USING (true);
+-- Allow anonymous access for API operations (or service role)
+DROP POLICY IF EXISTS "Allow anon all users" ON public.users;
+CREATE POLICY "Allow anon all users" ON public.users FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow anon all mate_assignments" ON public.mate_assignments;
+CREATE POLICY "Allow anon all mate_assignments" ON public.mate_assignments FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow anon all private_notes" ON public.private_notes;
+CREATE POLICY "Allow anon all private_notes" ON public.private_notes FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow anon all praise_messages" ON public.praise_messages;
+CREATE POLICY "Allow anon all praise_messages" ON public.praise_messages FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow anon all app_state" ON public.app_state;
+CREATE POLICY "Allow anon all app_state" ON public.app_state FOR ALL USING (true);

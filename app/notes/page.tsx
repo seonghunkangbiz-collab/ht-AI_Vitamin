@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PrivateNote } from '@/lib/types';
 import { getCurrentUser, getAllUsers, getNotesForUser, saveNote } from '@/lib/db';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ export default function NotesPage() {
   const [selectedTargetId, setSelectedTargetId] = useState<string>('');
   const [noteText, setNoteText] = useState<string>('');
   const [isSaved, setIsSaved] = useState(false);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -22,11 +24,19 @@ export default function NotesPage() {
       setUserState(user);
 
       if (user) {
-        const users = await getAllUsers();
-        setAllUsers(users.filter(u => u.id !== user.id && u.role !== 'admin'));
+        const usersRes = await getAllUsers();
+        if (usersRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setAllUsers((usersRes.users || []).filter(u => u.id !== user.id && u.role !== 'admin'));
 
-        const userNotes = await getNotesForUser(user.id);
-        setNotes(userNotes);
+        const notesRes = await getNotesForUser(user.id);
+        if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setNotes(notesRes.notes || []);
       }
     }
     loadData();
@@ -40,14 +50,26 @@ export default function NotesPage() {
 
   const handleSave = async () => {
     if (!currentUser || !selectedTargetId) return;
-    const saved = await saveNote(currentUser.id, selectedTargetId, noteText);
+    const res = await saveNote(currentUser.id, selectedTargetId, noteText);
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
     
     // Refresh notes
     const updatedNotes = await getNotesForUser(currentUser.id);
-    setNotes(updatedNotes);
+    setNotes(updatedNotes.notes || []);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   if (!currentUser) {
     return (

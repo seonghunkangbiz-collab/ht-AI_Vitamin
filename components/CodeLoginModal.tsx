@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { User } from '@/lib/types';
-import { getUserByCode, getAllUsers } from '@/lib/db';
+import { getUserByCode } from '@/lib/db';
+import SupabaseConfigError from './SupabaseConfigError';
 import { KeyRound, CheckCircle2, ArrowRight, X, Sparkles } from 'lucide-react';
 
 interface CodeLoginModalProps {
@@ -14,24 +15,31 @@ interface CodeLoginModalProps {
 export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: CodeLoginModalProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [isUnconfigured, setIsUnconfigured] = useState(false);
   const [foundUser, setFoundUser] = useState<User | null>(null);
 
   if (!isOpen) return null;
 
   const handleCheckCode = async () => {
     setError('');
+    setIsUnconfigured(false);
     if (!code.trim()) {
       setError('참여코드를 입력해 주세요.');
       return;
     }
 
-    const user = await getUserByCode(code);
-    if (!user) {
-      setError('올바르지 않은 참여코드입니다. (예: VIT-7F2A9)');
+    const res = await getUserByCode(code);
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setIsUnconfigured(true);
       return;
     }
 
-    setFoundUser(user);
+    if (res.error || !res.user) {
+      setError(res.error || '올바르지 않은 참여코드입니다. (예: VIT-7F2A9)');
+      return;
+    }
+
+    setFoundUser(res.user);
   };
 
   const handleConfirmLogin = () => {
@@ -43,10 +51,17 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
 
   const handleQuickSelect = async (sampleCode: string) => {
     setCode(sampleCode);
-    const user = await getUserByCode(sampleCode);
-    if (user) {
-      setFoundUser(user);
-      setError('');
+    setError('');
+    setIsUnconfigured(false);
+    const res = await getUserByCode(sampleCode);
+    if (res.error === 'SUPABASE_UNCONFIGURED') {
+      setIsUnconfigured(true);
+      return;
+    }
+    if (res.user) {
+      setFoundUser(res.user);
+    } else {
+      setError(res.error || '사용자를 찾을 수 없습니다.');
     }
   };
 
@@ -70,8 +85,9 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           </div>
         </div>
 
-        {/* Input area */}
-        {!foundUser ? (
+        {isUnconfigured ? (
+          <SupabaseConfigError />
+        ) : !foundUser ? (
           <div className="flex flex-col gap-3 mt-2">
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1">

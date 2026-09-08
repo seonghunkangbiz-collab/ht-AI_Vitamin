@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import Splash from '@/components/Splash';
 import CodeLoginModal from '@/components/CodeLoginModal';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage } from '@/lib/types';
 import { getCurrentUser, setCurrentUser, getPraises, getMatesForUser } from '@/lib/db';
 import { fetchAISuggestion } from '@/lib/aiService';
@@ -28,6 +29,7 @@ export default function HomePage() {
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
   const [recentPraises, setRecentPraises] = useState<PraiseMessage[]>([]);
   const [mateCount, setMateCount] = useState<number>(0);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -35,12 +37,20 @@ export default function HomePage() {
       setUserState(user);
 
       if (user) {
-        const mates = await getMatesForUser(user.id);
-        setMateCount(mates.length);
+        const matesRes = await getMatesForUser(user.id);
+        if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setMateCount((matesRes.mates || []).length);
       }
 
-      const praises = await getPraises();
-      setRecentPraises(praises.slice(0, 3));
+      const praisesRes = await getPraises();
+      if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
+        setConfigError(true);
+        return;
+      }
+      setRecentPraises((praisesRes.praises || []).slice(0, 3));
 
       // Initial AI Suggestion
       loadSuggestion();
@@ -63,9 +73,17 @@ export default function HomePage() {
   const handleLoginSuccess = async (user: User) => {
     await setCurrentUser(user);
     setUserState(user);
-    const mates = await getMatesForUser(user.id);
-    setMateCount(mates.length);
+    const matesRes = await getMatesForUser(user.id);
+    setMateCount((matesRes.mates || []).length);
   };
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   if (!currentUser) {
     return (

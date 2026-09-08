@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
+import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage } from '@/lib/types';
 import { getCurrentUser, getMatesForUser, getPraises, getIsRevealActive } from '@/lib/db';
 import { fetchAITimeCapsule } from '@/lib/aiService';
@@ -17,6 +18,7 @@ export default function RevealPage() {
   const [receivedPraises, setReceivedPraises] = useState<PraiseMessage[]>([]);
   const [timeCapsule, setTimeCapsule] = useState<{ letter: string; keywords: string[] } | null>(null);
   const [isLoadingCapsule, setIsLoadingCapsule] = useState<boolean>(false);
+  const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -28,12 +30,20 @@ export default function RevealPage() {
 
       if (user) {
         // Fetch assigned mates
-        const mates = await getMatesForUser(user.id);
-        setMyMates(mates);
+        const matesRes = await getMatesForUser(user.id);
+        if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setMyMates(matesRes.mates || []);
 
         // Fetch received praises
-        const allPraises = await getPraises();
-        const myReceived = allPraises.filter(p => p.recipientUserId === user.id);
+        const praisesRes = await getPraises();
+        if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        const myReceived = (praisesRes.praises || []).filter(p => p.recipientUserId === user.id);
         setReceivedPraises(myReceived);
 
         // Generate Time Capsule
@@ -59,6 +69,14 @@ export default function RevealPage() {
     }
     loadData();
   }, []);
+
+  if (configError) {
+    return (
+      <MobileLayout>
+        <SupabaseConfigError />
+      </MobileLayout>
+    );
+  }
 
   if (!currentUser) {
     return (
