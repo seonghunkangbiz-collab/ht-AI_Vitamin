@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_USERS } from '@/lib/seedData';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
@@ -18,7 +21,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Auto-seed initial 24 users if database is empty
+    // Auto-seed initial 24 users ONLY if database is completely empty (0 rows)
     if (!users || users.length === 0) {
       await supabase.from('users').upsert(INITIAL_USERS);
       const reFetch = await supabase

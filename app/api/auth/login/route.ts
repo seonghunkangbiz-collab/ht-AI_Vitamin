@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_USERS } from '@/lib/seedData';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
@@ -23,11 +26,11 @@ export async function POST(request: Request) {
       .eq('code', normalizedCode)
       .maybeSingle();
 
-    // 2. If user is not found, check if users table is empty or needs initial seed
+    // 2. If user is not found, check if users table is empty
     if (!user) {
       const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-      if (count === 0 || normalizedCode === 'VIT-ADMIN') {
-        // Auto-seed initial 24 users + admin into Supabase users table
+      if (count === 0) {
+        // Auto-seed initial 24 users + admin into Supabase users table ONLY if table is 0
         await supabase.from('users').upsert(INITIAL_USERS);
         
         // Retry fetching user after seed

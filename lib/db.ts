@@ -2,14 +2,41 @@ import { User, PrivateNote, PraiseMessage } from './types';
 
 const STORAGE_CURRENT_USER_KEY = 'ai_vitamin_session_v1';
 
-// Client-side Session Management (only minimal login identity in browser)
+// Client-side Session Management with Supabase Live Re-sync
 export async function getCurrentUser(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
   try {
     const item = window.localStorage.getItem(STORAGE_CURRENT_USER_KEY);
-    return item ? JSON.parse(item) : null;
+    if (!item) return null;
+    
+    const localUser: User = JSON.parse(item);
+    if (!localUser || !localUser.code) return localUser;
+
+    // Live sync user profile from Supabase using user code
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: localUser.code }),
+      cache: 'no-store'
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        // Update local session with latest name/team/avatar from Supabase Users table
+        setCurrentUser(data.user);
+        return data.user;
+      }
+    }
+
+    return localUser;
   } catch (e) {
-    return null;
+    try {
+      const item = window.localStorage.getItem(STORAGE_CURRENT_USER_KEY);
+      return item ? JSON.parse(item) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -33,14 +60,15 @@ export async function setCurrentUser(user: User | null): Promise<void> {
   } catch (e) {}
 }
 
-// Supabase API calls via Next.js API Routes
+// Supabase API calls via Next.js API Routes (no-store for fresh DB responses)
 
 export async function getUserByCode(code: string): Promise<{ user?: User; error?: string }> {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ code }),
+      cache: 'no-store'
     });
     const data = await res.json();
     if (!res.ok) {
@@ -54,7 +82,7 @@ export async function getUserByCode(code: string): Promise<{ user?: User; error?
 
 export async function getAllUsers(): Promise<{ users?: User[]; error?: string }> {
   try {
-    const res = await fetch('/api/users');
+    const res = await fetch('/api/users', { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -67,7 +95,7 @@ export async function getAllUsers(): Promise<{ users?: User[]; error?: string }>
 
 export async function getMatesForUser(userId: string): Promise<{ mates?: User[]; error?: string }> {
   try {
-    const res = await fetch(`/api/mates?userId=${encodeURIComponent(userId)}`);
+    const res = await fetch(`/api/mates?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -80,7 +108,7 @@ export async function getMatesForUser(userId: string): Promise<{ mates?: User[];
 
 export async function getNotesForUser(userId: string): Promise<{ notes?: PrivateNote[]; error?: string }> {
   try {
-    const res = await fetch(`/api/notes?userId=${encodeURIComponent(userId)}`);
+    const res = await fetch(`/api/notes?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -96,7 +124,8 @@ export async function saveNote(userId: string, targetUserId: string, content: st
     const res = await fetch('/api/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, targetUserId, content })
+      body: JSON.stringify({ userId, targetUserId, content }),
+      cache: 'no-store'
     });
     const data = await res.json();
     if (!res.ok) {
@@ -110,7 +139,7 @@ export async function saveNote(userId: string, targetUserId: string, content: st
 
 export async function getPraises(isAdmin: boolean = false): Promise<{ praises?: PraiseMessage[]; error?: string }> {
   try {
-    const res = await fetch(`/api/praises${isAdmin ? '?admin=true' : ''}`);
+    const res = await fetch(`/api/praises${isAdmin ? '?admin=true' : ''}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -140,7 +169,8 @@ export async function addPraise(
         recipientTeam,
         content,
         refinedContent
-      })
+      }),
+      cache: 'no-store'
     });
     const data = await res.json();
     if (!res.ok) {
@@ -154,7 +184,10 @@ export async function addPraise(
 
 export async function deletePraiseMessage(id: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    const res = await fetch(`/api/praises?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/praises?id=${encodeURIComponent(id)}`, { 
+      method: 'DELETE',
+      cache: 'no-store'
+    });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -167,7 +200,7 @@ export async function deletePraiseMessage(id: string): Promise<{ success?: boole
 
 export async function getIsRevealActive(): Promise<boolean> {
   try {
-    const res = await fetch('/api/reveal');
+    const res = await fetch('/api/reveal', { cache: 'no-store' });
     const data = await res.json();
     return Boolean(data.isRevealActive);
   } catch (e) {
@@ -180,7 +213,8 @@ export async function toggleRevealActive(active: boolean): Promise<boolean> {
     const res = await fetch('/api/reveal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active })
+      body: JSON.stringify({ active }),
+      cache: 'no-store'
     });
     const data = await res.json();
     return Boolean(data.isRevealActive);
@@ -191,7 +225,10 @@ export async function toggleRevealActive(active: boolean): Promise<boolean> {
 
 export async function assignRandomMatesCrossTeam(): Promise<{ success?: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/admin/assign-mates', { method: 'POST' });
+    const res = await fetch('/api/admin/assign-mates', { 
+      method: 'POST',
+      cache: 'no-store' 
+    });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
@@ -204,7 +241,10 @@ export async function assignRandomMatesCrossTeam(): Promise<{ success?: boolean;
 
 export async function seedSupabaseData(): Promise<{ success?: boolean; error?: string }> {
   try {
-    const res = await fetch('/api/admin/seed', { method: 'POST' });
+    const res = await fetch('/api/admin/seed', { 
+      method: 'POST',
+      cache: 'no-store' 
+    });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };

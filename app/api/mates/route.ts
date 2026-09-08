@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_MATE_ASSIGNMENTS } from '@/lib/seedData';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
@@ -27,7 +30,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Auto-seed initial assignments if table is completely empty
+    // Auto-seed initial assignments if table is completely empty (0 rows)
     if (!assignments || assignments.length === 0) {
       const { count } = await supabase.from('mate_assignments').select('*', { count: 'exact', head: true });
       if (count === 0) {
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ mates: [] });
     }
 
-    // Fetch user details for targetUserIds
+    // Fetch fresh user details for targetUserIds directly from Supabase
     const { data: mates, error: usersErr } = await supabase
       .from('users')
       .select('id, code, name, team, avatar, role')
