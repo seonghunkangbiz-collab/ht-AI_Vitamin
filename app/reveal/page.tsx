@@ -114,7 +114,7 @@ export default function RevealPage() {
       <div className="flex flex-col gap-6 pb-6">
         {/* Top Header */}
         <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 rounded-full hover:bg-slate-200/60 text-slate-600 transition-colors">
+          <Link href="/" prefetch={true} className="p-2 rounded-full hover:bg-slate-200/60 text-slate-600 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">

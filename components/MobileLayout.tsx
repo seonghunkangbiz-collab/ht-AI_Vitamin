@@ -30,10 +30,8 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
 
   useEffect(() => {
     async function loadData() {
-      const user = await getCurrentUser();
-      setUserState(user);
-      const reveal = await getIsRevealActive();
-      setIsRevealActive(reveal);
+      getCurrentUser().then(user => setUserState(user)).catch(() => {});
+      getIsRevealActive().then(reveal => setIsRevealActive(reveal)).catch(() => {});
     }
     loadData();
   }, [pathname]);
@@ -68,7 +66,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
     <div className="w-full max-w-[480px] min-h-screen bg-slate-50 relative flex flex-col shadow-2xl pb-24 overflow-x-hidden border-x border-slate-200/60">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md px-4 py-3 border-b border-slate-100 flex items-center justify-between shadow-xs">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" prefetch={true} className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-sm">
             AI
           </div>
@@ -84,6 +82,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
           {isRevealActive && (
             <Link 
               href="/reveal" 
+              prefetch={true}
               className="px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[11px] font-extrabold flex items-center gap-1 shadow-sm animate-pulse"
             >
               <Sparkles className="w-3 h-3" />
@@ -129,6 +128,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className={`flex flex-col items-center justify-center -mt-5 transition-transform active:scale-95`}
                 >
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-float ${
@@ -149,6 +149,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
                   isActive ? 'text-sky-600 font-bold' : 'text-slate-400 hover:text-slate-600'
                 }`}

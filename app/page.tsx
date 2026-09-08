@@ -34,30 +34,32 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadInitialData() {
-      try {
-        const user = await getCurrentUser();
-        setUserState(user);
+      const user = await getCurrentUser();
+      setUserState(user);
+      setIsInitializing(false);
 
-        if (user) {
-          const matesRes = await getMatesForUser(user.id);
-          if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+      if (user) {
+        Promise.all([
+          getMatesForUser(user.id),
+          getPraises()
+        ]).then(([matesRes, praisesRes]) => {
+          if (matesRes.error === 'SUPABASE_UNCONFIGURED' || praisesRes.error === 'SUPABASE_UNCONFIGURED') {
             setConfigError(true);
             return;
           }
           setMateCount((matesRes.mates || []).length);
-        }
+          setRecentPraises((praisesRes.praises || []).slice(0, 3));
+        }).catch(() => {});
 
-        const praisesRes = await getPraises();
-        if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
-        }
-        setRecentPraises((praisesRes.praises || []).slice(0, 3));
-
-        // Initial AI Suggestion
         loadSuggestion();
-      } finally {
-        setIsInitializing(false);
+      } else {
+        getPraises().then(praisesRes => {
+          if (praisesRes.error === 'SUPABASE_UNCONFIGURED') {
+            setConfigError(true);
+            return;
+          }
+          setRecentPraises((praisesRes.praises || []).slice(0, 3));
+        }).catch(() => {});
       }
     }
     loadInitialData();
