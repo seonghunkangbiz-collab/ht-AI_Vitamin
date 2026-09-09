@@ -36,14 +36,33 @@ export interface PraiseMessage {
   isMatePraise?: boolean;
 }
 
-export interface TimeCapsule {
+export interface AISuggestion {
   id: string;
-  userId: string;
-  letterContent: string;
+  content: string;
+  createdAt?: string;
+}
+
+export interface TimeCapsule {
+  id?: string;
+  userId?: string;
+  letter: string;
+  analysis: string;
   keywords: string[];
-  generatedAt: string;
+  generatedAt?: string;
 }
 
 export interface AppState {
   isRevealActive: boolean;
+  revealDate?: string;
+}
+
+export interface ActivityStats {
+  weeklyPraiseCount: number;
+  totalPraiseCount: number;
+  recentPraiseCount: number;
+  totalUserCount: number;
+  totalNoteCount: number;
+  wallViewCount: number;
+  revealDate: string;
+  revealDaysLeft: number;
 }

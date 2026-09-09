@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage } from '@/lib/types';
-import { getCurrentUser, getPraises } from '@/lib/db';
+import { getCurrentUser, getPraises, incrementWallViewCount } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Heart, MessageSquare, ArrowLeft, Sparkles, Smile } from 'lucide-react';
@@ -19,6 +19,8 @@ export default function WallPage() {
     async function loadData() {
       const user = await getCurrentUser();
       setUserState(user);
+
+      incrementWallViewCount();
 
       const listRes = await getPraises();
       if (listRes.error === 'SUPABASE_UNCONFIGURED') {

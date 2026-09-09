@@ -80,13 +80,16 @@ export async function fetchAIRefinedPraise(originalText: string): Promise<string
   return `${trimmed} 항상 묵묵히 밝은 에너지를 전달해 주셔서 진심으로 고맙습니다! 💖`;
 }
 
-export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; keywords: string[] }> {
+export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; analysis: string; keywords: string[] }> {
   const defaultKeywords = ['협업', '배려', '책임감', '전문성', '긍정에너지'];
-  
+  const defaultAnalysis = `동료들은 ${recipientName}님을 항상 먼저 도와주는 동료, 팀 분위기를 밝고 화기애애하게 만드는 든든한 조력자로 기억하고 있습니다.`;
+  const defaultLetter = `지난 두 달 동안 동료들이 보내준 응원과 칭찬을 분석했습니다. 많은 사람들이 ${recipientName}님의 따뜻한 배려와 강한 책임감을 이야기했습니다. 앞으로도 우리 본부에 좋은 에너지를 전해주세요.\n\n- AI Vitamin -`;
+
   if (praises.length === 0) {
     return {
-      letter: `${recipientName}님, 지난 2개월 동안 HT사업본부에서 보여주신 성실함과 따뜻한 동료애에 감사드립니다. 앞으로도 밝은 에너지를 기대합니다!`,
-      keywords: defaultKeywords
+      keywords: defaultKeywords,
+      analysis: defaultAnalysis,
+      letter: defaultLetter
     };
   }
 
@@ -97,15 +100,17 @@ export async function fetchAITimeCapsule(recipientName: string, praises: string[
         messages: [
           {
             role: 'system',
-            content: `너는 HT사업본부 AI Vitamin Program의 Time Capsule 담당자야.
-2개월 동안 ${recipientName}님이 받은 칭찬 메시지들을 바탕으로:
-1. 칭찬들에서 가장 두드러진 키워드 5개 (예: ["협업", "배려", "책임감", "전문성", "긍정에너지"])
-2. 3~4문장 분량의 감동적인 2개월 요약 감사 편지를 작성해줘.
+            content: `너는 HT사업본부 AI Vitamin Program의 Time Capsule 분석관이야.
+2개월 동안 ${recipientName}님이 받은 칭찬 메시지들을 분석해서 3가지를 생성해줘:
+1. "keywords": 칭찬들에서 가장 두드러진 단어 5개 (예: ["협업", "배려", "책임감", "전문성", "긍정에너지"])
+2. "analysis": "동료들은 ${recipientName}님을 ~한 사람으로 기억했습니다." 형태의 1-2문장 짧은 AI 동료 분석 요약.
+3. "letter": 지난 두 달간의 응원과 칭찬을 바탕으로 한 따뜻한 AI 감사 편지 3-4문장. 끝에 "\n\n- AI Vitamin -"을 포함할 것.
 
-JSON 포맷으로 반환해줘:
+JSON 포맷으로만 반환해줘:
 {
   "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"],
-  "letter": "편지 내용..."
+  "analysis": "동료들은 ... 기억했습니다.",
+  "letter": "편지 내용...\n\n- AI Vitamin -"
 }`
           },
           {
@@ -121,8 +126,9 @@ JSON 포맷으로 반환해줘:
       if (content) {
         const parsed = JSON.parse(content);
         return {
-          letter: parsed.letter || `${recipientName}님, 수많은 동료들이 전달한 깊은 감사와 칭찬 메시지처럼, 늘 팀에 밝고 주도적인 긍정 선긍향을 전해주셨습니다.`,
-          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : defaultKeywords
+          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : defaultKeywords,
+          analysis: parsed.analysis || defaultAnalysis,
+          letter: parsed.letter || defaultLetter
         };
       }
     } catch (e) {
@@ -132,7 +138,8 @@ JSON 포맷으로 반환해줘:
 
   // High quality fallback letter generation
   return {
-    letter: `${recipientName}님, 지난 2개월간 동료들이 보내온 수많은 칭찬에는 ${recipientName}님의 뛰어난 협업 능력과 따뜻한 배려심이 듬뿍 담겨 있습니다. 회의 정리부터 묵묵히 팀원들을 돕는 모습까지, HT사업본부를 더 행복한 일터로 만들어 주셔서 감사합니다! 💌`,
-    keywords: defaultKeywords
+    keywords: defaultKeywords,
+    analysis: defaultAnalysis,
+    letter: defaultLetter
   };
 }

@@ -1,24 +1,29 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import SupabaseConfigError from '@/components/SupabaseConfigError';
-import { User, PraiseMessage } from '@/lib/types';
+import { User, PraiseMessage, TimeCapsule } from '@/lib/types';
 import { getCurrentUser, getMatesForUser, getPraises, getIsRevealActive } from '@/lib/db';
 import { fetchAITimeCapsule } from '@/lib/aiService';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Sparkles, Gift, Heart, Award, ArrowLeft, Lock, Star, MessageCircle } from 'lucide-react';
+import { Sparkles, Gift, Heart, Award, ArrowLeft, Lock, FileText, Image as ImageIcon, Download, CheckCircle2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export default function RevealPage() {
   const [currentUser, setUserState] = useState<User | null>(null);
   const [isRevealActive, setIsRevealActive] = useState<boolean>(false);
   const [myMates, setMyMates] = useState<User[]>([]);
   const [receivedPraises, setReceivedPraises] = useState<PraiseMessage[]>([]);
-  const [timeCapsule, setTimeCapsule] = useState<{ letter: string; keywords: string[] } | null>(null);
+  const [timeCapsule, setTimeCapsule] = useState<TimeCapsule | null>(null);
   const [isLoadingCapsule, setIsLoadingCapsule] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [configError, setConfigError] = useState(false);
+
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -69,6 +74,53 @@ export default function RevealPage() {
     }
     loadData();
   }, []);
+
+  const handleDownloadImage = async () => {
+    if (!cardRef.current) return;
+    setIsExporting(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const image = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `HT_AI_Vitamin_TimeCapsule_${currentUser?.name || 'User'}.png`;
+      link.click();
+    } catch (err) {
+      console.error('Image export error:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!cardRef.current) return;
+    setIsExporting(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      const imgWidth = 190;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+      pdf.save(`HT_AI_Vitamin_TimeCapsule_${currentUser?.name || 'User'}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (configError) {
     return (
@@ -167,53 +219,110 @@ export default function RevealPage() {
           </div>
         </div>
 
-        {/* Section 2: 나에게 가장 많이 남겨진 키워드 */}
+        {/* Feature 3: Apple Style AI Time Capsule Card (with Export options) */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-            <Award className="w-4 h-4 text-blue-600" />
-            나에게 가장 많이 남겨진 키워드
-          </h3>
-
-          <div className="flex flex-wrap gap-2 p-4 bg-white rounded-3xl border border-slate-100 shadow-xs">
-            {(timeCapsule?.keywords || ['협업', '배려', '책임감', '전문성', '긍정에너지']).map((kw, i) => (
-              <span
-                key={i}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold shadow-2xs ${
-                  i === 0 ? 'bg-blue-600 text-white' :
-                  i === 1 ? 'bg-purple-600 text-white' :
-                  i === 2 ? 'bg-sky-500 text-white' :
-                  i === 3 ? 'bg-indigo-500 text-white' : 'bg-pink-500 text-white'
-                }`}
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-amber-500 fill-amber-300" />
+              AI Time Capsule 헌정 카드
+            </h3>
+            
+            {/* Export Buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleDownloadImage}
+                disabled={isExporting || isLoadingCapsule}
+                className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-extrabold flex items-center gap-1 shadow-2xs transition-all active:scale-95"
               >
-                #{kw}
-              </span>
-            ))}
+                <ImageIcon className="w-3.5 h-3.5 text-sky-600" />
+                <span>이미지 저장</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isExporting || isLoadingCapsule}
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[11px] font-extrabold flex items-center gap-1 shadow-2xs transition-all active:scale-95"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>PDF 저장</span>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Section 3: AI Time Capsule Letter */}
-        <div className="flex flex-col gap-3">
-          <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-300" />
-            AI Time Capsule 개인 헌정 편지
-          </h3>
-
-          <div className="p-6 rounded-3xl gradient-hero border border-sky-200/90 shadow-card flex flex-col gap-4 relative overflow-hidden">
-            <div className="flex items-center gap-2">
+          {/* Exportable Apple Style Card Element */}
+          <div 
+            ref={cardRef}
+            className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-card flex flex-col gap-5 relative overflow-hidden"
+          >
+            {/* Header branding */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400 via-indigo-500 to-purple-600 text-white flex items-center justify-center text-2xl shadow-sm">
+                  {currentUser.avatar || '👤'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-base font-black text-slate-900">{currentUser.name}님</h4>
+                    <span className="text-[10px] bg-sky-100 text-sky-700 font-extrabold px-2 py-0.5 rounded-full">
+                      HT AI Vitamin
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium">{currentUser.team}</span>
+                </div>
+              </div>
               <span className="text-2xl">💌</span>
-              <span className="text-xs font-black text-slate-800">
-                {currentUser.name}님을 위한 감사 편지
-              </span>
             </div>
 
             {isLoadingCapsule ? (
-              <div className="p-6 text-center text-xs text-slate-500">
-                AI가 수집된 칭찬을 분석해 편지를 작성하고 있습니다...
+              <div className="p-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                <span>AI가 수집된 칭찬을 분석해 편지를 작성하고 있습니다...</span>
               </div>
             ) : (
-              <p className="text-xs font-bold text-slate-800 leading-relaxed bg-white/90 p-4 rounded-2xl border border-sky-100 shadow-xs">
-                {timeCapsule?.letter}
-              </p>
+              <>
+                {/* ① 대표 키워드 */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-500 flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-blue-600" />
+                    대표 키워드
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(timeCapsule?.keywords || ['협업', '배려', '책임감', '전문성', '긍정에너지']).map((kw, i) => (
+                      <span
+                        key={i}
+                        className={`px-3 py-1 rounded-full text-xs font-extrabold ${
+                          i === 0 ? 'bg-sky-100 text-sky-700' :
+                          i === 1 ? 'bg-purple-100 text-purple-700' :
+                          i === 2 ? 'bg-emerald-100 text-emerald-700' :
+                          i === 3 ? 'bg-indigo-100 text-indigo-700' : 'bg-pink-100 text-pink-700'
+                        }`}
+                      >
+                        #{kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ② AI 분석 요약 */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-500">
+                    AI 동료 분석
+                  </span>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-800 leading-relaxed">
+                    {timeCapsule?.analysis || `동료들은 ${currentUser.name}님을 항상 먼저 도와주는 사람, 회의 분위기를 좋게 만드는 사람으로 기억했습니다.`}
+                  </div>
+                </div>
+
+                {/* ③ AI 감사 편지 */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-500">
+                    AI 헌정 편지
+                  </span>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50/60 border border-sky-100 text-xs font-bold text-slate-800 leading-relaxed whitespace-pre-line shadow-xs">
+                    {timeCapsule?.letter || `지난 두 달 동안 동료들이 보내준 응원과 칭찬을 분석했습니다.\n많은 사람들이 ${currentUser.name}님의 배려와 책임감을 이야기했습니다.\n앞으로도 좋은 에너지를 전해주세요.\n\n- AI Vitamin -`}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

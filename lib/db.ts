@@ -1,4 +1,4 @@
-import { User, PrivateNote, PraiseMessage } from './types';
+import { User, PrivateNote, PraiseMessage, AISuggestion, ActivityStats } from './types';
 
 const STORAGE_CURRENT_USER_KEY = 'ai_vitamin_session_v1';
 
@@ -253,4 +253,69 @@ export async function seedSupabaseData(): Promise<{ success?: boolean; error?: s
   } catch (e: any) {
     return { error: e.message };
   }
+}
+
+export async function getAISuggestionsList(): Promise<{ suggestions?: AISuggestion[]; error?: string }> {
+  try {
+    const res = await fetch('/api/suggestions', { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error };
+    return { suggestions: data.suggestions || [] };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function saveAISuggestionsList(suggestions: AISuggestion[]): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suggestions }),
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error };
+    return { success: true };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function getActivityStats(): Promise<{ stats?: ActivityStats; error?: string }> {
+  try {
+    const res = await fetch('/api/stats', { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error };
+    return { stats: data.stats };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function setRevealTargetDate(dateStr: string): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_reveal_date', revealDate: dateStr }),
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error };
+    return { success: true };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function incrementWallViewCount(): Promise<void> {
+  try {
+    await fetch('/api/stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'increment_wall_view' }),
+      cache: 'no-store'
+    });
+  } catch (e) {}
 }

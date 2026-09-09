@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import SupabaseConfigError from '@/components/SupabaseConfigError';
-import { User, PraiseMessage } from '@/lib/types';
+import { User, PraiseMessage, AISuggestion, ActivityStats } from '@/lib/types';
 import { 
   getCurrentUser, 
   getAllUsers, 
@@ -12,7 +12,11 @@ import {
   toggleRevealActive, 
   assignRandomMatesCrossTeam,
   seedSupabaseData,
-  deletePraiseMessage
+  deletePraiseMessage,
+  getAISuggestionsList,
+  saveAISuggestionsList,
+  getActivityStats,
+  setRevealTargetDate
 } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -27,7 +31,12 @@ import {
   ArrowLeft,
   Database,
   Trash2,
-  Lock
+  Lock,
+  BarChart3,
+  Plus,
+  Calendar,
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -38,6 +47,12 @@ export default function AdminPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [configError, setConfigError] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // New admin state for suggestions & stats
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
+  const [newSuggestionInput, setNewSuggestionInput] = useState<string>('');
+  const [stats, setStats] = useState<ActivityStats | null>(null);
+  const [targetDateInput, setTargetDateInput] = useState<string>('2026-10-23');
 
   useEffect(() => {
     async function loadData() {
@@ -61,6 +76,19 @@ export default function AdminPage() {
 
         const reveal = await getIsRevealActive();
         setIsRevealActive(reveal);
+
+        // Fetch AI suggestions
+        const sugRes = await getAISuggestionsList();
+        if (sugRes.suggestions) {
+          setSuggestions(sugRes.suggestions);
+        }
+
+        // Fetch Stats
+        const statsRes = await getActivityStats();
+        if (statsRes.stats) {
+          setStats(statsRes.stats);
+          setTargetDateInput(statsRes.stats.revealDate || '2026-10-23');
+        }
       }
     }
     loadData();
@@ -115,6 +143,45 @@ export default function AdminPage() {
     showStatus('메시지가 삭제 처리되었습니다.');
   };
 
+  const handleAddSuggestion = async () => {
+    if (!newSuggestionInput.trim()) return;
+    const updated = [
+      ...suggestions,
+      { id: `sug-${Date.now()}`, content: newSuggestionInput.trim() }
+    ];
+    const res = await saveAISuggestionsList(updated);
+    if (res.error) {
+      showStatus(`저장 실패: ${res.error}`);
+      return;
+    }
+    setSuggestions(updated);
+    setNewSuggestionInput('');
+    showStatus('새로운 AI Suggestion이 등록되었습니다.');
+  };
+
+  const handleDeleteSuggestion = async (id: string) => {
+    const updated = suggestions.filter(s => s.id !== id);
+    const res = await saveAISuggestionsList(updated);
+    if (res.error) {
+      showStatus(`삭제 실패: ${res.error}`);
+      return;
+    }
+    setSuggestions(updated);
+    showStatus('Suggestion이 삭제되었습니다.');
+  };
+
+  const handleSaveRevealDate = async () => {
+    if (!targetDateInput) return;
+    const res = await setRevealTargetDate(targetDateInput);
+    if (res.error) {
+      showStatus(`설정 실패: ${res.error}`);
+      return;
+    }
+    showStatus(`Reveal Day 목표일이 ${targetDateInput}로 설정되었습니다.`);
+    const statsRes = await getActivityStats();
+    if (statsRes.stats) setStats(statsRes.stats);
+  };
+
   const handleExportCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
     csvContent += 'ID,작성자ID(관리자),수신자,수신팀,칭찬내용,작성일시\n';
@@ -147,7 +214,6 @@ export default function AdminPage() {
     );
   }
 
-  // Requirement #12: Role Protection for Admin Page
   if (!currentUser || currentUser.role !== 'admin') {
     return (
       <MobileLayout>
@@ -163,6 +229,7 @@ export default function AdminPage() {
           </p>
           <Link
             href="/"
+            prefetch={true}
             className="mt-2 py-2.5 px-5 bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs"
           >
             홈으로 돌아가기
@@ -198,6 +265,111 @@ export default function AdminPage() {
             <span>{statusMessage}</span>
           </motion.div>
         )}
+
+        {/* Feature 4 Admin: Detailed Activity Summary Stats */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+              <BarChart3 className="w-4 h-4 text-sky-600" />
+              프로그램 전체 상세 활동 통계
+            </h3>
+            <span className="text-[10px] text-slate-400 font-medium">실시간 DB 집계</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="p-3 rounded-2xl bg-sky-50 border border-sky-100 flex flex-col items-center">
+              <span className="text-[11px] text-slate-500 font-bold">총 참여자</span>
+              <span className="text-lg font-black text-sky-600 mt-0.5">{stats?.totalUserCount ?? users.length}명</span>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 flex flex-col items-center">
+              <span className="text-[11px] text-slate-500 font-bold">응원 등록</span>
+              <span className="text-lg font-black text-indigo-600 mt-0.5">{stats?.totalPraiseCount ?? praises.length}건</span>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-purple-50 border border-purple-100 flex flex-col items-center">
+              <span className="text-[11px] text-slate-500 font-bold">Private Note</span>
+              <span className="text-lg font-black text-purple-600 mt-0.5">{stats?.totalNoteCount ?? 0}건</span>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 flex flex-col items-center">
+              <span className="text-[11px] text-slate-500 font-bold">Vitamin Wall 조회</span>
+              <span className="text-lg font-black text-emerald-600 mt-0.5">{stats?.wallViewCount ?? 0}회</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature 1 Admin: AI Weekly Suggestion Management */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              🌱 이번 주 AI Suggestion 문구 관리 ({suggestions.length}개)
+            </h3>
+          </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed font-medium">
+            사용자 Home 상단에 무작위로 제시될 6~8개 제안 문구를 등록 및 관리합니다.
+          </p>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newSuggestionInput}
+              onChange={(e) => setNewSuggestionInput(e.target.value)}
+              placeholder="예: 회의에서 좋은 의견을 먼저 인정해 보세요."
+              className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              onClick={handleAddSuggestion}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" /> 추가
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 mt-1">
+            {suggestions.map((s) => (
+              <div key={s.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2 text-xs font-medium text-slate-800">
+                <span>&ldquo;{s.content}&rdquo;</span>
+                <button
+                  onClick={() => handleDeleteSuggestion(s.id)}
+                  className="text-red-500 hover:text-red-700 p-1 shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Feature 2 Admin: Reveal Target Date Setting */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-purple-600" />
+              🎁 Reveal Day 목표 날짜 설정
+            </h3>
+            <span className="text-[10px] text-purple-600 font-extrabold bg-purple-50 px-2 py-0.5 rounded-full">
+              D-{stats?.revealDaysLeft ?? 0}일 남음
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={targetDateInput}
+              onChange={(e) => setTargetDateInput(e.target.value)}
+              className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              onClick={handleSaveRevealDate}
+              className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shrink-0"
+            >
+              날짜 설정
+            </button>
+          </div>
+        </div>
 
         {/* Action Controls */}
         <div className="grid grid-cols-1 gap-3">
@@ -354,7 +526,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Confirmation Modal for Mystery Mate Re-assignment (Requirement #7) */}
+      {/* Confirmation Modal for Mystery Mate Re-assignment */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
