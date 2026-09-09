@@ -9,14 +9,19 @@ export async function POST() {
   try {
     const supabase = getSupabaseServerClient();
 
-    // Fetch all non-admin users from Supabase users table
-    const { data: users, error: usersErr } = await supabase
+    // Fetch all users and filter non-admin in JS to support NULL role
+    const { data: allUsers, error: usersErr } = await supabase
       .from('users')
-      .select('id, code, name, team, role')
-      .neq('role', 'admin');
+      .select('id, code, name, team, role');
 
-    if (usersErr || !users || users.length === 0) {
+    if (usersErr || !allUsers || allUsers.length === 0) {
       return NextResponse.json({ error: '배정 가능한 사용자가 없습니다. 먼저 사용자를 등록하세요.' }, { status: 400 });
+    }
+
+    const users = allUsers.filter(u => u.role !== 'admin');
+
+    if (users.length < 2) {
+      return NextResponse.json({ error: '배정 가능한 사용자가 2명 이상이어야 합니다.' }, { status: 400 });
     }
 
     // Delete existing mate assignments from Supabase

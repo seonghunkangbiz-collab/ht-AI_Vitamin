@@ -27,10 +27,10 @@ export async function GET() {
     const recentPraiseCount = (praises || []).filter(p => new Date(p.created_at) >= threeDaysAgo).length;
 
     // 2. Fetch Users Count (excluding admin)
-    const { count: totalUserCount } = await supabase
+    const { data: allUsers } = await supabase
       .from('users')
-      .select('*', { count: 'exact', head: true })
-      .neq('role', 'admin');
+      .select('id, role');
+    const totalUserCount = (allUsers || []).filter(u => u.role !== 'admin').length;
 
     // 3. Fetch Private Notes Count
     const { count: totalNoteCount } = await supabase
