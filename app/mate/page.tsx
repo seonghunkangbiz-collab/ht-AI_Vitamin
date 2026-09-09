@@ -17,30 +17,35 @@ export default function MatePage() {
   const [tempNote, setTempNote] = useState<string>('');
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
   const [configError, setConfigError] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadData() {
-      const user = await getCurrentUser();
-      setUserState(user);
+      try {
+        const user = await getCurrentUser();
+        setUserState(user);
 
-      if (user) {
-        const matesRes = await getMatesForUser(user.id);
-        if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
-        }
-        setMates(matesRes.mates || []);
+        if (user) {
+          const matesRes = await getMatesForUser(user.id);
+          if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+            setConfigError(true);
+            return;
+          }
+          setMates(matesRes.mates || []);
 
-        const notesRes = await getNotesForUser(user.id);
-        if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
+          const notesRes = await getNotesForUser(user.id);
+          if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
+            setConfigError(true);
+            return;
+          }
+          const noteMap: Record<string, string> = {};
+          (notesRes.notes || []).forEach(n => {
+            noteMap[n.targetUserId] = n.content;
+          });
+          setNotes(noteMap);
         }
-        const noteMap: Record<string, string> = {};
-        (notesRes.notes || []).forEach(n => {
-          noteMap[n.targetUserId] = n.content;
-        });
-        setNotes(noteMap);
+      } finally {
+        setIsLoading(false);
       }
     }
     loadData();
@@ -116,7 +121,30 @@ export default function MatePage() {
 
         {/* Mate List Cards */}
         <div className="flex flex-col gap-4">
-          {mates.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col gap-4">
+              <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs animate-pulse flex flex-col gap-3">
+                <div className="h-4 w-20 bg-slate-200 rounded-full" />
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-200" />
+                  <div className="flex flex-col gap-2">
+                    <div className="h-4 w-24 bg-slate-200 rounded" />
+                    <div className="h-3 w-32 bg-slate-200 rounded" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs animate-pulse flex flex-col gap-3">
+                <div className="h-4 w-20 bg-slate-200 rounded-full" />
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-200" />
+                  <div className="flex flex-col gap-2">
+                    <div className="h-4 w-24 bg-slate-200 rounded" />
+                    <div className="h-3 w-32 bg-slate-200 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : mates.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 text-slate-400 text-xs">
               배정된 Mystery Mate가 없습니다. 관리자에게 문의해 주세요.
             </div>
