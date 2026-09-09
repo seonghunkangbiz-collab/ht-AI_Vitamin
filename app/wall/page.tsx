@@ -14,20 +14,26 @@ export default function WallPage() {
   const [praises, setPraises] = useState<PraiseMessage[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'recent'>('all');
   const [configError, setConfigError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const user = await getCurrentUser();
-      setUserState(user);
+      try {
+        const user = await getCurrentUser();
+        setUserState(user);
 
-      incrementWallViewCount();
+        // Non-blocking view counter increment
+        incrementWallViewCount();
 
-      const listRes = await getPraises();
-      if (listRes.error === 'SUPABASE_UNCONFIGURED') {
-        setConfigError(true);
-        return;
+        const listRes = await getPraises();
+        if (listRes.error === 'SUPABASE_UNCONFIGURED') {
+          setConfigError(true);
+          return;
+        }
+        setPraises(listRes.praises || []);
+      } finally {
+        setIsLoading(false);
       }
-      setPraises(listRes.praises || []);
     }
     loadData();
   }, []);
@@ -94,7 +100,25 @@ export default function WallPage() {
 
         {/* Cards Feed */}
         <div className="flex flex-col gap-3.5">
-          {filteredPraises.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col gap-3.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs animate-pulse flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-200" />
+                      <div className="flex flex-col gap-1.5">
+                        <div className="h-3.5 w-20 bg-slate-200 rounded" />
+                        <div className="h-2.5 w-28 bg-slate-200 rounded" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-20 bg-slate-200 rounded-full" />
+                  </div>
+                  <div className="h-16 w-full bg-slate-100 rounded-2xl" />
+                </div>
+              ))}
+            </div>
+          ) : filteredPraises.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-3xl border border-slate-100 text-slate-400 text-xs">
               아직 도착한 칭찬 메시지가 없습니다. 첫 번째 비타민을 보내보세요!
             </div>

@@ -26,18 +26,18 @@ export default function MatePage() {
         setUserState(user);
 
         if (user) {
-          const matesRes = await getMatesForUser(user.id);
-          if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
+          const [matesRes, notesRes] = await Promise.all([
+            getMatesForUser(user.id),
+            getNotesForUser(user.id)
+          ]);
+
+          if (matesRes.error === 'SUPABASE_UNCONFIGURED' || notesRes.error === 'SUPABASE_UNCONFIGURED') {
             setConfigError(true);
             return;
           }
+
           setMates(matesRes.mates || []);
 
-          const notesRes = await getNotesForUser(user.id);
-          if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
-            setConfigError(true);
-            return;
-          }
           const noteMap: Record<string, string> = {};
           (notesRes.notes || []).forEach(n => {
             noteMap[n.targetUserId] = n.content;

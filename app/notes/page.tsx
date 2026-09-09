@@ -17,26 +17,30 @@ export default function NotesPage() {
   const [noteText, setNoteText] = useState<string>('');
   const [isSaved, setIsSaved] = useState(false);
   const [configError, setConfigError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const user = await getCurrentUser();
-      setUserState(user);
+      try {
+        const user = await getCurrentUser();
+        setUserState(user);
 
-      if (user) {
-        const usersRes = await getAllUsers();
-        if (usersRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
-        }
-        setAllUsers((usersRes.users || []).filter(u => u.id !== user.id && u.role !== 'admin'));
+        if (user) {
+          const [usersRes, notesRes] = await Promise.all([
+            getAllUsers(),
+            getNotesForUser(user.id)
+          ]);
 
-        const notesRes = await getNotesForUser(user.id);
-        if (notesRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
+          if (usersRes.error === 'SUPABASE_UNCONFIGURED' || notesRes.error === 'SUPABASE_UNCONFIGURED') {
+            setConfigError(true);
+            return;
+          }
+
+          setAllUsers((usersRes.users || []).filter(u => u.id !== user.id && u.role !== 'admin'));
+          setNotes(notesRes.notes || []);
         }
-        setNotes(notesRes.notes || []);
+      } finally {
+        setIsLoading(false);
       }
     }
     loadData();
@@ -160,10 +164,22 @@ export default function NotesPage() {
         <div className="flex flex-col gap-3">
           <h3 className="text-xs font-extrabold text-slate-700 flex items-center gap-1">
             <BookOpen className="w-4 h-4 text-emerald-500" />
-            저장된 관찰 메모 ({notes.length}개)
+            저장된 관찰 메모 ({isLoading ? '...' : `${notes.length}개`})
           </h3>
 
-          {notes.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col gap-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs animate-pulse flex flex-col gap-2">
+                  <div className="flex justify-between">
+                    <div className="h-3.5 w-24 bg-slate-200 rounded" />
+                    <div className="h-3 w-16 bg-slate-200 rounded" />
+                  </div>
+                  <div className="h-10 w-full bg-slate-100 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : notes.length === 0 ? (
             <div className="p-6 text-center bg-white rounded-2xl border border-slate-100 text-xs text-slate-400">
               작성된 메모가 없습니다. 위에서 동료를 선택하여 메모를 남겨보세요.
             </div>

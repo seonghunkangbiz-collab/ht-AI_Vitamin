@@ -60,7 +60,23 @@ export async function setCurrentUser(user: User | null): Promise<void> {
   } catch (e) {}
 }
 
-// Supabase API calls via Next.js API Routes (no-store for fresh DB responses)
+// Client-side SWR (Stale-While-Revalidate) Cache Store
+const memoryCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds fresh TTL
+
+export function invalidateCache(prefix?: string) {
+  if (!prefix) {
+    memoryCache.clear();
+    return;
+  }
+  memoryCache.forEach((_, key) => {
+    if (key.startsWith(prefix)) {
+      memoryCache.delete(key);
+    }
+  });
+}
+
+// Supabase API calls via Next.js API Routes
 
 export async function getUserByCode(code: string): Promise<{ user?: User; error?: string }> {
   try {
@@ -81,40 +97,67 @@ export async function getUserByCode(code: string): Promise<{ user?: User; error?
 }
 
 export async function getAllUsers(): Promise<{ users?: User[]; error?: string }> {
+  const cacheKey = 'users:all';
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const res = await fetch('/api/users', { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
     }
-    return { users: data.users || [] };
+    const result = { users: data.users || [] };
+    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (e: any) {
+    if (cached) return cached.data;
     return { error: e.message || '유저 목록을 불러오지 못했습니다.' };
   }
 }
 
 export async function getMatesForUser(userId: string): Promise<{ mates?: User[]; error?: string }> {
+  const cacheKey = `mates:${userId}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const res = await fetch(`/api/mates?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
     }
-    return { mates: data.mates || [] };
+    const result = { mates: data.mates || [] };
+    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (e: any) {
+    if (cached) return cached.data;
     return { error: e.message };
   }
 }
 
 export async function getNotesForUser(userId: string): Promise<{ notes?: PrivateNote[]; error?: string }> {
+  const cacheKey = `notes:${userId}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const res = await fetch(`/api/notes?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
     }
-    return { notes: data.notes || [] };
+    const result = { notes: data.notes || [] };
+    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (e: any) {
+    if (cached) return cached.data;
     return { error: e.message };
   }
 }
@@ -131,6 +174,7 @@ export async function saveNote(userId: string, targetUserId: string, content: st
     if (!res.ok) {
       return { error: data.error };
     }
+    invalidateCache(`notes:${userId}`);
     return { note: data.note };
   } catch (e: any) {
     return { error: e.message };
@@ -138,14 +182,23 @@ export async function saveNote(userId: string, targetUserId: string, content: st
 }
 
 export async function getPraises(isAdmin: boolean = false): Promise<{ praises?: PraiseMessage[]; error?: string }> {
+  const cacheKey = `praises:${isAdmin}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const res = await fetch(`/api/praises${isAdmin ? '?admin=true' : ''}`, { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) {
       return { error: data.error };
     }
-    return { praises: data.praises || [] };
+    const result = { praises: data.praises || [] };
+    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (e: any) {
+    if (cached) return cached.data;
     return { error: e.message };
   }
 }
@@ -176,6 +229,7 @@ export async function addPraise(
     if (!res.ok) {
       return { error: data.error };
     }
+    invalidateCache('praises:');
     return { praise: data.praise };
   } catch (e: any) {
     return { error: e.message };
@@ -192,6 +246,7 @@ export async function deletePraiseMessage(id: string): Promise<{ success?: boole
     if (!res.ok) {
       return { error: data.error };
     }
+    invalidateCache('praises:');
     return { success: true };
   } catch (e: any) {
     return { error: e.message };
@@ -233,6 +288,7 @@ export async function assignRandomMatesCrossTeam(): Promise<{ success?: boolean;
     if (!res.ok) {
       return { error: data.error };
     }
+    invalidateCache('mates:');
     return { success: true };
   } catch (e: any) {
     return { error: e.message };
