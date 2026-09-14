@@ -104,7 +104,7 @@ export default function AdminPage() {
       showStatus(`시드 오류: ${res.error}`);
       return;
     }
-    showStatus('Supabase 공용 DB에 초기 25명 임직원 데이터 저장이 완료되었습니다!');
+    showStatus('Supabase 공용 DB에 초기 24명 임직원 데이터 저장이 완료되었습니다!');
     
     // Refresh user list
     const allUsersRes = await getAllUsers();
@@ -129,7 +129,7 @@ export default function AdminPage() {
       showStatus(`배정 오류: ${res.error}`);
       return;
     }
-    showStatus(`25명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 완료되었습니다!`);
+    showStatus(`24명 임직원에 대한 타팀 우선 Mystery Mate 2명 배정이 완료되었습니다!`);
   };
 
   const handleDeletePraise = async (id: string) => {
@@ -378,19 +378,19 @@ export default function AdminPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-indigo-600" />
-                25명 임직원 데이터 초기 등록
+                24명 임직원 데이터 초기 등록
               </h3>
               <span className="text-[10px] text-slate-400 font-medium">Supabase 등록</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              HT사업본부 25명 임직원 프로필과 참여코드를 Supabase DB에 등록합니다.
+              HT사업본부 24명 임직원 프로필과 참여코드를 Supabase DB에 등록합니다.
             </p>
             <button
               onClick={handleSeedData}
               className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
             >
               <Database className="w-4 h-4" />
-              <span>초기 25명 데이터 저장 실행</span>
+              <span>초기 24명 데이터 저장 실행</span>
             </button>
           </div>
 
@@ -539,7 +539,7 @@ export default function AdminPage() {
                 &ldquo;기존 Mystery Mate 배정이 모두 변경됩니다.&rdquo;
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                전체 25명 임직원에게 새로운 타팀 Mystery Mate 2명이 새로 랜덤 매칭됩니다. 계속하시겠습니까?
+                전체 24명 임직원에게 새로운 타팀 Mystery Mate 2명이 새로 랜덤 매칭됩니다. 계속하시겠습니까?
               </p>
             </div>
             <div className="flex gap-2">
