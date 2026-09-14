@@ -25,6 +25,7 @@ export const INITIAL_USERS: User[] = [
   { id: 'user-22', code: 'VIT-4G6V5', name: '강태형', team: '반도체AX사업개발팀', avatar: '👨‍🔬' },
   { id: 'user-23', code: 'VIT-6H9W8', name: '조진영', team: '반도체AX사업개발팀', avatar: '👩‍💼' },
   { id: 'user-24', code: 'VIT-9I2X1', name: '허성훈', team: '반도체AX사업개발팀', avatar: '👨‍💼' },
+  { id: 'user-25', code: 'VIT-2J5K8', name: '장인애', team: 'Hi-Tech 사업본부', avatar: '👩‍💼' },
   // 관리자 계정
   { id: 'admin-01', code: 'VIT-ADMIN', name: 'HT사업본부 관리자', team: '운영팀', avatar: '👑', role: 'admin' },
 ];
