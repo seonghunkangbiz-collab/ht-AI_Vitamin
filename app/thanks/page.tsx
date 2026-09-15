@@ -9,7 +9,7 @@ import { getCurrentUser, getAllUsers, addPraise } from '@/lib/db';
 import { fetchAIRefinedPraise } from '@/lib/aiService';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Heart, Sparkles, Send, ArrowLeft, CheckCircle2, Info } from 'lucide-react';
+import { Heart, Sparkles, Send, ArrowLeft, CheckCircle2, Info, X, Copy, Check } from 'lucide-react';
 
 function ThanksForm() {
   const searchParams = useSearchParams();
@@ -24,6 +24,7 @@ function ThanksForm() {
   const [isRefining, setIsRefining] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSent, setIsSent] = useState<boolean>(false);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [configError, setConfigError] = useState(false);
 
@@ -177,9 +178,26 @@ function ThanksForm() {
               <label className="text-xs font-extrabold text-slate-700">
                 칭찬 / 응원 내용
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {content.length}/300
-              </span>
+              <div className="flex items-center gap-2">
+                {content.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContent('');
+                      setRefinedContent('');
+                      setError('');
+                    }}
+                    className="text-[11px] font-bold text-slate-400 hover:text-red-500 flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg hover:bg-red-50 transition-all"
+                    title="작성한 내용 전체 삭제"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>삭제</span>
+                  </button>
+                )}
+                <span className="text-[10px] text-slate-400 font-medium">
+                  {content.length}/300
+                </span>
+              </div>
             </div>
             <textarea
               maxLength={300}
@@ -202,12 +220,37 @@ function ThanksForm() {
                   <Sparkles className="w-3.5 h-3.5 text-purple-500" />
                   AI가 따뜻하게 다듬은 문장
                 </span>
-                <button
-                  onClick={() => setRefinedContent('')}
-                  className="text-[10px] text-slate-400 hover:text-slate-600"
-                >
-                  원문 사용
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(refinedContent);
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    className="text-[11px] font-bold text-purple-700 hover:text-purple-900 flex items-center gap-1 px-2.5 py-1 bg-white/90 hover:bg-white rounded-lg border border-purple-200 shadow-2xs transition-all"
+                    title="다듬어진 문장 복사"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600">복사됨!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-purple-600" />
+                        <span>복사</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRefinedContent('')}
+                    className="text-[10px] text-slate-400 hover:text-slate-600"
+                  >
+                    원문 사용
+                  </button>
+                </div>
               </div>
               <p className="text-xs font-bold text-slate-800 leading-relaxed bg-white/80 p-3 rounded-xl border border-purple-100">
                 &ldquo;{refinedContent}&rdquo;

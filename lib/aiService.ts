@@ -55,14 +55,19 @@ export async function fetchAIRefinedPraise(originalText: string): Promise<string
         messages: [
           {
             role: 'system',
-            content: '너는 직장 동료 간의 칭찬 문장을 더욱 따뜻하고 예의바르며 긍정적인 메시지로 다듬어주는 AI 코치야. 원문의 진심과 의미는 살리면서 더 자연스럽고 감동적인 문장 1~2개로 다듬어줘. 칭찬 대상이 읽었을 때 기분 좋아지도록 만들어줘.'
+            content: `너는 직장 동료 간의 칭찬 문장을 더욱 따뜻하고 예의바르며 감동적인 메시지로 다듬어주는 전문가야.
+규칙:
+1. 입력된 원문의 핵심 메시지와 진심을 100% 보존해줘.
+2. 매번 동일한 상투어(예: "항상 묵묵히...", "언제나 당신의 노고가...", "진심으로 감사드립니다")를 일률적으로 덧붙이지 마.
+3. 원문의 구체적인 행동이나 맥락(도움, 배려, 꼼꼼함, 웃음, 긍정에너지 등)에 어울리는 다양하고 자연스러운 한국어 문장 1~2개로 다듬어줘.
+4. 불필요한 서두나 큰따옴표 없이 최종 다듬은 칭찬 메시지만 바로 반환해줘.`
           },
           {
             role: 'user',
-            content: `다음 칭찬 문장을 따뜻하게 다듬어줘:\n"${originalText}"`
+            content: `다음 칭찬 문장을 자연스럽고 정성스럽게 다듬어줘 (다양성 시드: ${Math.random().toString(36).substring(7)}):\n"${originalText}"`
           }
         ],
-        temperature: 0.7,
+        temperature: 0.85,
         max_tokens: 250
       });
       const result = response.choices[0]?.message?.content?.trim();
@@ -72,12 +77,23 @@ export async function fetchAIRefinedPraise(originalText: string): Promise<string
     }
   }
 
-  // Rule-based high quality fallback refinement
+  // Fallback engine: 10 distinct high-quality variations to prevent repeated/identical outputs
   const trimmed = originalText.trim();
-  if (trimmed.endsWith('고맙습니다.') || trimmed.endsWith('감사합니다!')) {
-    return `${trimmed} 언제나 당신의 노고가 우리 팀에 큰 힘이 됩니다! 🌟`;
-  }
-  return `${trimmed} 항상 묵묵히 밝은 에너지를 전달해 주셔서 진심으로 고맙습니다! 💖`;
+  const VARIED_ENHANCERS = [
+    (text: string) => `${text} 평소 보여주신 따뜻한 배려와 긍정적인 에너지가 우리 팀에 늘 큰 힘이 됩니다! ✨`,
+    (text: string) => `${text} 묵묵히 최선을 다해주시는 덕분에 언제나 안심하고 함께 일할 수 있어요. 진심으로 감사해요! 🌟`,
+    (text: string) => `${text} 세심한 관심과 센스 덕분에 팀 분위기가 한층 더 밝아지는 것 같아요. 늘 고맙습니다! 💖`,
+    (text: string) => `${text} 동료들을 먼저 챙겨주시는 성실한 모습에 큰 감동을 받았습니다. 언제나 응원합니다! 👍`,
+    (text: string) => `${text} 작은 부분까지 책임감 있게 챙겨주셔서 큰 도움이 되었습니다. 멋진 동료와 함께해서 기뻐요! 😊`,
+    (text: string) => `${text} 매순간 보여주신 열정과 친절함이 함께하는 사람들에게 귀감이 됩니다. 진심으로 감사드려요! 🍀`,
+    (text: string) => `${text} 따뜻한 미소와 인내심으로 함께해주셔서 업무 현장이 훨씬 더 훈훈해지는 느낌입니다! 🔥`,
+    (text: string) => `${text} 늘 든든하게 받쳐주시고 시너지를 내주셔서 감사한 마음입니다. 앞으로도 화이팅입니다! 🎉`,
+    (text: string) => `${text} 보이지 않는 곳에서도 팀을 위해 마음 써주시는 노고에 깊이 감사드립니다! 👏`,
+    (text: string) => `${text} 언제나 밝은 표정과 유연한 태도로 배려해주셔서 함께 일하는 시간이 즐겁습니다! 💕`
+  ];
+
+  const randomIndex = Math.floor(Math.random() * VARIED_ENHANCERS.length);
+  return VARIED_ENHANCERS[randomIndex](trimmed);
 }
 
 export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; analysis: string; keywords: string[] }> {
