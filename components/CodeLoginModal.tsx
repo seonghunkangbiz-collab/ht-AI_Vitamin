@@ -24,7 +24,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
     setError('');
     setIsUnconfigured(false);
     if (!code.trim()) {
-      setError('참여코드를 입력해 주세요.');
+      setError('참여코드 또는 사번을 입력해 주세요.');
       return;
     }
 
@@ -35,7 +35,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
     }
 
     if (res.error || !res.user) {
-      setError('올바르지 않은 참여코드입니다. 발급받으신 코드를 확인해 주세요.');
+      setError('올바르지 않은 참여코드 또는 사번입니다. 발급받으신 코드(VIT-XXXXX)나 사번(09721)을 확인해 주세요.');
       return;
     }
 
@@ -64,8 +64,8 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
             <KeyRound className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">참여코드 입력</h3>
-            <p className="text-xs text-slate-500">본인에게 발급된 개인 코드를 입력하세요.</p>
+            <h3 className="font-bold text-slate-900 text-lg">접속 로그인</h3>
+            <p className="text-xs text-slate-500">참여코드 또는 사번(예: 09721)을 입력하세요.</p>
           </div>
         </div>
 
@@ -75,14 +75,14 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           <div className="flex flex-col gap-3 mt-2">
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1">
-                참여코드
+                참여코드 또는 사번
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="참여코드 입력"
+                  placeholder="참여코드 또는 사번 입력"
                   className="flex-1 py-3.5 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold text-center tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all uppercase"
                 />
                 <button

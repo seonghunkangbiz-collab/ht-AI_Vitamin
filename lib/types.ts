@@ -5,6 +5,7 @@ export interface User {
   team: string;
   avatar?: string;
   role?: 'admin' | 'user';
+  employeeNumber?: string;
 }
 
 export interface MateAssignment {

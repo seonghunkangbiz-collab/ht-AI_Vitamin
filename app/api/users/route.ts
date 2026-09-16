@@ -31,7 +31,20 @@ export async function GET() {
       users = reFetch.data || [];
     }
 
-    return NextResponse.json({ users: users || [] });
+    const formattedUsers = (users || []).map(u => {
+      const matchedSeed = INITIAL_USERS.find(s => s.id === u.id || s.code === u.code);
+      return {
+        id: u.id,
+        code: u.code,
+        name: u.name,
+        team: u.team,
+        avatar: u.avatar,
+        role: u.role,
+        employeeNumber: matchedSeed?.employeeNumber
+      };
+    });
+
+    return NextResponse.json({ users: formattedUsers });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }
