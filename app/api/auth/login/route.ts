@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
-      return NextResponse.json({ error: '올바르지 않은 참여코드 또는 사번입니다. (예: 09721 또는 VIT-7F2A9)' }, { status: 404 });
+      return NextResponse.json({ error: '올바르지 않은 참여코드 또는 사번입니다.' }, { status: 404 });
     }
 
     const matchedSeed = INITIAL_USERS.find(u => u.id === user.id || u.code === user.code);

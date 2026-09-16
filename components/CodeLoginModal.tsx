@@ -35,7 +35,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
     }
 
     if (res.error || !res.user) {
-      setError('올바르지 않은 참여코드 또는 사번입니다. 발급받으신 코드(VIT-XXXXX)나 사번(09721)을 확인해 주세요.');
+      setError('올바르지 않은 참여코드 또는 사번입니다. 입력 정보를 확인해 주세요.');
       return;
     }
 
@@ -65,7 +65,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-lg">접속 로그인</h3>
-            <p className="text-xs text-slate-500">참여코드 또는 사번(예: 09721)을 입력하세요.</p>
+            <p className="text-xs text-slate-500">참여코드 또는 사번을 입력하세요.</p>
           </div>
         </div>
 
