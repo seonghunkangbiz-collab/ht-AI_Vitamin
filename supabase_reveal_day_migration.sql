@@ -376,14 +376,19 @@ CREATE POLICY "Public can view reveal_event_assets" ON public.reveal_event_asset
 -- 민감 테이블인 users, mate_assignments, private_notes, praise_messages, app_state
 -- 서버 API를 통한 서비스 롤(Service Role) 키 또는 검증된 서버 핸들러에서 안전하게 처리하도록 설정.
 DROP POLICY IF EXISTS "Allow all users operations" ON public.users;
+DROP POLICY IF EXISTS "Public can view safe users info" ON public.users;
+DROP POLICY IF EXISTS "Users read safe info" ON public.users;
 CREATE POLICY "Users read safe info" ON public.users FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow all mate_assignments operations" ON public.mate_assignments;
+DROP POLICY IF EXISTS "Deny direct public mate access" ON public.mate_assignments;
 -- mate_assignments는 서버 API를 통해서만 허용된 공개 시점에 조회되도록 직접 anon 접근 차단 (No anon direct read)
 CREATE POLICY "Deny direct public mate access" ON public.mate_assignments FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Allow all private_notes operations" ON public.private_notes;
+DROP POLICY IF EXISTS "Deny direct public notes access" ON public.private_notes;
 CREATE POLICY "Deny direct public notes access" ON public.private_notes FOR SELECT TO authenticated USING (true);
+
 
 -- ========================================================
 -- Supabase Realtime Publication 등록
