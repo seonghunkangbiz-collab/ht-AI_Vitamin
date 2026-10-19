@@ -247,7 +247,7 @@ export async function transitionSegment(
 
   const nextSequence = (pubState?.sequence || 1) + 1;
 
-  await supabase
+  const { error: pubErr } = await supabase
     .from('reveal_public_state')
     .update({
       current_segment: targetSegment,
@@ -256,6 +256,10 @@ export async function transitionSegment(
       updated_at: now
     })
     .eq('event_id', eventId);
+
+  if (pubErr) {
+    throw new Error(`Failed to update public state: ${pubErr.message}`);
+  }
 
   // 5. Record audit log
   await supabase.from('reveal_audit_logs').insert({

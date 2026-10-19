@@ -126,12 +126,17 @@ export default function AdminRevealDayPage() {
 
       if (res.status === 409) {
         alert('다른 운영자가 상태를 변경했습니다. 최신 상태로 새로고침합니다.');
-        fetchAllData();
+        await fetchAllData();
+        refetchState();
         return;
       }
 
       if (res.ok) {
-        fetchAllData();
+        await fetchAllData();
+        refetchState();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`순서 전환 오류: ${errData.error || errData.message || res.statusText}`);
       }
     } catch (e: any) {
       alert(`상태 전이 실패: ${e.message}`);

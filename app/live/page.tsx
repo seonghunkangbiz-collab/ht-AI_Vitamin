@@ -105,8 +105,13 @@ export default function LiveAttendeePage() {
         try {
           confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
         } catch {}
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(`체크인 실패: ${data.error || '잠시 후 다시 시도해 주세요.'}`);
       }
-    } catch {}
+    } catch (e: any) {
+      alert(`네트워크 오류: ${e.message}`);
+    }
   };
 
   // Emoji Reaction Sender
@@ -371,6 +376,10 @@ export default function LiveAttendeePage() {
           setUserState(user);
           setCurrentUser(user);
           setIsLoginModalOpen(false);
+          // Auto trigger checkin
+          setTimeout(() => {
+            handleCheckin();
+          }, 300);
         }}
       />
     </MobileLayout>

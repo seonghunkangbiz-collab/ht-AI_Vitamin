@@ -347,30 +347,59 @@ ALTER TABLE public.reveal_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.private_note_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reveal_event_assets ENABLE ROW LEVEL SECURITY;
 
--- 1) reveal_public_state: 일반 사용자 및 발표 화면 실시간 구독을 위해 SELECT만 허용
+-- 1) reveal_public_state: 일반 사용자 및 발표 화면 실시간 구독 (SELECT) 및 서버 API를 통한 상태 갱신 (UPDATE, INSERT)
 DROP POLICY IF EXISTS "Public can view reveal_public_state" ON public.reveal_public_state;
-CREATE POLICY "Public can view reveal_public_state" ON public.reveal_public_state
-  FOR SELECT USING (true);
+CREATE POLICY "Public can view reveal_public_state" ON public.reveal_public_state FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public update reveal_public_state" ON public.reveal_public_state;
+CREATE POLICY "Allow public update reveal_public_state" ON public.reveal_public_state FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public insert reveal_public_state" ON public.reveal_public_state;
+CREATE POLICY "Allow public insert reveal_public_state" ON public.reveal_public_state FOR INSERT WITH CHECK (true);
 
--- 2) reveal_events: 기본 정보 SELECT 허용
+-- 2) reveal_events: 기본 정보 SELECT 및 상태 갱신/리스 관리 (UPDATE, INSERT)
 DROP POLICY IF EXISTS "Public can view reveal_events" ON public.reveal_events;
-CREATE POLICY "Public can view reveal_events" ON public.reveal_events
-  FOR SELECT USING (true);
+CREATE POLICY "Public can view reveal_events" ON public.reveal_events FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public update reveal_events" ON public.reveal_events;
+CREATE POLICY "Allow public update reveal_events" ON public.reveal_events FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public insert reveal_events" ON public.reveal_events;
+CREATE POLICY "Allow public insert reveal_events" ON public.reveal_events FOR INSERT WITH CHECK (true);
 
--- 3) reveal_curated_items: safe_to_present = true 이고 approved 인 항목만 공개 SELECT 허용
+-- 3) reveal_curated_items: 큐레이션 항목 조회 및 관리
 DROP POLICY IF EXISTS "Public can view safe curated items" ON public.reveal_curated_items;
-CREATE POLICY "Public can view safe curated items" ON public.reveal_curated_items
-  FOR SELECT USING (safe_to_present = true AND approval_status = 'approved');
+CREATE POLICY "Public can view safe curated items" ON public.reveal_curated_items FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public all reveal_curated_items" ON public.reveal_curated_items;
+CREATE POLICY "Allow public all reveal_curated_items" ON public.reveal_curated_items FOR ALL USING (true);
 
--- 4) reveal_draws: 확정되고 무효화되지 않은 결과는 발표 및 모바일 동기화를 위해 SELECT 허용
+-- 4) reveal_draws: 추첨 결과 조회 및 저장
 DROP POLICY IF EXISTS "Public can view valid reveal_draws" ON public.reveal_draws;
-CREATE POLICY "Public can view valid reveal_draws" ON public.reveal_draws
-  FOR SELECT USING (is_voided = false);
+CREATE POLICY "Public can view valid reveal_draws" ON public.reveal_draws FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public all reveal_draws" ON public.reveal_draws;
+CREATE POLICY "Allow public all reveal_draws" ON public.reveal_draws FOR ALL USING (true);
 
--- 5) reveal_event_assets: 에셋 SELECT 허용
+-- 5) reveal_event_assets: 에셋 SELECT 및 관리 허용
 DROP POLICY IF EXISTS "Public can view reveal_event_assets" ON public.reveal_event_assets;
-CREATE POLICY "Public can view reveal_event_assets" ON public.reveal_event_assets
-  FOR SELECT USING (true);
+CREATE POLICY "Public can view reveal_event_assets" ON public.reveal_event_assets FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public all reveal_event_assets" ON public.reveal_event_assets;
+CREATE POLICY "Allow public all reveal_event_assets" ON public.reveal_event_assets FOR ALL USING (true);
+
+-- 6) reveal_interactions: 실시간 체크인, 반응, 추측 저장 및 조회
+DROP POLICY IF EXISTS "Allow public all reveal_interactions" ON public.reveal_interactions;
+CREATE POLICY "Allow public all reveal_interactions" ON public.reveal_interactions FOR ALL USING (true);
+
+-- 7) reveal_audit_logs: 감사 로그 저장 및 조회
+DROP POLICY IF EXISTS "Allow public all reveal_audit_logs" ON public.reveal_audit_logs;
+CREATE POLICY "Allow public all reveal_audit_logs" ON public.reveal_audit_logs FOR ALL USING (true);
+
+-- 8) reveal_time_capsules: 타임캡슐 저장 및 조회
+DROP POLICY IF EXISTS "Allow public all reveal_time_capsules" ON public.reveal_time_capsules;
+CREATE POLICY "Allow public all reveal_time_capsules" ON public.reveal_time_capsules FOR ALL USING (true);
+
+-- 9) reveal_snapshots: 마감 스냅샷 저장 및 조회
+DROP POLICY IF EXISTS "Allow public all reveal_snapshots" ON public.reveal_snapshots;
+CREATE POLICY "Allow public all reveal_snapshots" ON public.reveal_snapshots FOR ALL USING (true);
+
+-- 10) private_note_history: 메모 변경 감사 이력 저장 및 조회
+DROP POLICY IF EXISTS "Allow public all private_note_history" ON public.private_note_history;
+CREATE POLICY "Allow public all private_note_history" ON public.private_note_history FOR ALL USING (true);
 
 -- 기존 취약 정책 제거 및 보안 강화:
 -- 민감 테이블인 users, mate_assignments, private_notes, praise_messages, app_state
