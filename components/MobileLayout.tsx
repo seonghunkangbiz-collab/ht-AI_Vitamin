@@ -58,9 +58,7 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
     navItems.push({ label: 'Reveal', href: '/reveal', icon: Gift });
   }
 
-  if (currentUser?.role === 'admin') {
-    navItems.push({ label: '관리자', href: '/admin', icon: Settings });
-  }
+  navItems.push({ label: '관리자', href: '/admin', icon: Settings });
 
   return (
     <div className="w-full max-w-[480px] min-h-screen bg-slate-50 relative flex flex-col shadow-2xl pb-24 overflow-x-hidden border-x border-slate-200/60">

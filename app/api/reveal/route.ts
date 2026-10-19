@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,6 +29,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const adminAuth = await requireAdmin(request);
+  if ('errorResponse' in adminAuth) {
+    return adminAuth.errorResponse;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }

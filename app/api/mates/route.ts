@@ -1,71 +1,89 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
-import { INITIAL_MATE_ASSIGNMENTS } from '@/lib/seedData';
+import { requireAuth } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request: Request) {
+  const auth = requireAuth(request);
+  if ('errorResponse' in auth) {
+    return auth.errorResponse;
+  }
+
+  const { session } = auth;
+  const { searchParams } = new URL(request.url);
+  const requestedUserId = searchParams.get('userId');
+
+  // Prevent querying other users' mates unless administrator
+  let targetUserId = session.userId;
+  if (requestedUserId && requestedUserId !== session.userId) {
+    if (session.role !== 'admin') {
+      return NextResponse.json({ error: 'FORBIDDEN: Cannot view other users mate data' }, { status: 403 });
+    }
+    targetUserId = requestedUserId;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'userId parameter is required' }, { status: 400 });
-  }
-
   try {
     const supabase = getSupabaseServerClient();
-    
-    // Fetch assignments for this user only
-    let { data: assignments, error } = await supabase
+
+    // 1. Check if Reveal Day is active
+    const { data: revealState } = await supabase
+      .from('app_state')
+      .select('value')
+      .eq('key', 'reveal_active')
+      .maybeSingle();
+
+    const isRevealActive = Boolean(revealState?.value?.active);
+
+    // 2. Fetch Outbound Assignments: Whom did targetUserId observe?
+    const { data: outboundAssignments, error: outErr } = await supabase
       .from('mate_assignments')
       .select('target_user_id')
-      .eq('user_id', userId);
+      .eq('user_id', targetUserId);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (outErr) {
+      return NextResponse.json({ error: outErr.message }, { status: 500 });
     }
 
-    // Auto-seed initial assignments if table is completely empty (0 rows)
-    if (!assignments || assignments.length === 0) {
-      const { count } = await supabase.from('mate_assignments').select('*', { count: 'exact', head: true });
-      if (count === 0) {
-        await supabase.from('mate_assignments').upsert(
-          INITIAL_MATE_ASSIGNMENTS.map(a => ({
-            id: a.id,
-            user_id: a.userId,
-            target_user_id: a.targetUserId,
-            assigned_at: a.assignedAt
-          }))
-        );
-        const reFetch = await supabase
-          .from('mate_assignments')
-          .select('target_user_id')
-          .eq('user_id', userId);
-        assignments = reFetch.data || [];
+    const outboundTargetIds = (outboundAssignments || []).map(a => a.target_user_id);
+    let outboundMates: any[] = [];
+    if (outboundTargetIds.length > 0) {
+      const { data: mates } = await supabase
+        .from('users')
+        .select('id, name, team, avatar')
+        .in('id', outboundTargetIds);
+      outboundMates = mates || [];
+    }
+
+    // 3. Fetch Inbound Assignments: Who observed targetUserId? (Mystery Mate!)
+    // REVEAL RULE: Inbound Mystery Mates are only disclosed when Reveal Day is active or user is admin
+    let inboundMates: any[] = [];
+    if (isRevealActive || session.role === 'admin') {
+      const { data: inboundAssignments } = await supabase
+        .from('mate_assignments')
+        .select('user_id')
+        .eq('target_user_id', targetUserId);
+
+      const inboundObserverIds = (inboundAssignments || []).map(a => a.user_id);
+      if (inboundObserverIds.length > 0) {
+        const { data: observers } = await supabase
+          .from('users')
+          .select('id, name, team, avatar')
+          .in('id', inboundObserverIds);
+        inboundMates = observers || [];
       }
     }
 
-    const targetUserIds = (assignments || []).map(a => a.target_user_id);
-    if (targetUserIds.length === 0) {
-      return NextResponse.json({ mates: [] });
-    }
-
-    // Fetch fresh user details for targetUserIds directly from Supabase
-    const { data: mates, error: usersErr } = await supabase
-      .from('users')
-      .select('id, code, name, team, avatar, role')
-      .in('id', targetUserIds);
-
-    if (usersErr) {
-      return NextResponse.json({ error: usersErr.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ mates: mates || [] });
+    return NextResponse.json({
+      mates: outboundMates, // People I observed
+      myMysteryMates: inboundMates, // People who observed me (revealed only when active)
+      isRevealActive
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }

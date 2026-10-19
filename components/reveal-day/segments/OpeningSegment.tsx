@@ -1,0 +1,144 @@
+'use client';
+
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Sparkles, Users, Calendar, Clock, QrCode, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ORDERED_SEGMENTS, SEGMENT_METADATA } from '@/lib/reveal-day/state-machine';
+
+interface OpeningSegmentProps {
+  checkinCount: number;
+  totalAttendees?: number;
+  mode: 'live' | 'rehearsal';
+}
+
+export default function OpeningSegment({ checkinCount, totalAttendees = 24, mode }: OpeningSegmentProps) {
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`${appUrl}/live`)}`;
+
+  return (
+    <div className="w-full h-full flex flex-col justify-between p-10 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white relative overflow-hidden select-none">
+      {/* Background glow effects */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Header */}
+      <div className="flex items-center justify-between z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <span className="text-xs font-bold tracking-widest text-sky-400 uppercase">HT Business Division</span>
+            <h3 className="text-sm font-semibold text-slate-300">AI Vitamin Program</h3>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {mode === 'rehearsal' && (
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              REHEARSAL MODE
+            </span>
+          )}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+            <Calendar className="w-3.5 h-3.5 text-sky-400" />
+            <span>2026. 10. 28 (수) 16:00~17:30</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Body */}
+      <div className="my-auto grid grid-cols-12 gap-8 items-center z-10">
+        <div className="col-span-7 flex flex-col gap-5">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="inline-block px-3 py-1 rounded-lg bg-sky-500/15 border border-sky-400/30 text-sky-300 text-xs font-bold tracking-wider mb-2">
+              REVEAL DAY
+            </span>
+            <h1 className="text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight">
+              HT사업본부 AI Vitamin
+              <br />
+              <span className="bg-gradient-to-r from-sky-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                Reveal Day
+              </span>
+            </h1>
+            <p className="text-base text-slate-300 font-medium mt-3">
+              “Connecting People, Growing Together”
+            </p>
+            <p className="text-xs text-slate-400 max-w-lg leading-relaxed mt-1">
+              지난 두 달 동안 서로를 묵묵히 관찰하고 따뜻한 격려를 전해준 Mystery Mate와 AI 타임캡슐을 전격 공개합니다.
+            </p>
+          </motion.div>
+
+          {/* Check-in Counter Card */}
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 max-w-md shadow-xl">
+            <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">실시간 참석자 체크인</div>
+              <div className="text-2xl font-black text-white flex items-baseline gap-1.5">
+                <span className="text-sky-400">{checkinCount}</span>
+                <span className="text-sm font-normal text-slate-500">/ {totalAttendees}명</span>
+              </div>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>LIVE</span>
+            </div>
+          </div>
+        </div>
+
+        {/* QR Code Card */}
+        <div className="col-span-5 flex flex-col items-center justify-center">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="p-5 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl flex flex-col items-center text-center"
+          >
+            <div className="p-3 bg-white rounded-2xl shadow-inner mb-3">
+              <img
+                src={qrUrl}
+                alt="Mobile Live QR"
+                className="w-44 h-44 object-contain rounded-lg"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-300">
+              <QrCode className="w-3.5 h-3.5" />
+              <span>모바일 접속: /live</span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 max-w-[200px]">
+              카메라로 QR코드를 스캔하여 실시간 상호작용에 참여하세요.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Bottom Timeline Preview */}
+      <div className="z-10 pt-4 border-t border-slate-800/80">
+        <div className="grid grid-cols-8 gap-2">
+          {ORDERED_SEGMENTS.filter(s => s !== 'ended').map((seg, idx) => {
+            const meta = SEGMENT_METADATA[seg];
+            const isCurrent = seg === 'opening';
+            return (
+              <div
+                key={seg}
+                className={`p-2 rounded-xl text-center transition-all ${
+                  isCurrent
+                    ? 'bg-sky-500/20 border border-sky-400/40 text-white shadow-md shadow-sky-500/10'
+                    : 'bg-slate-900/50 border border-slate-800/60 text-slate-400'
+                }`}
+              >
+                <div className="text-[10px] font-bold text-sky-400">{meta.timeRange.split('~')[0]}</div>
+                <div className="text-xs font-semibold truncate mt-0.5">{meta.title}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

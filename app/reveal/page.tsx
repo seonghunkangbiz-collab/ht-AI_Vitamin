@@ -17,6 +17,7 @@ export default function RevealPage() {
   const [currentUser, setUserState] = useState<User | null>(null);
   const [isRevealActive, setIsRevealActive] = useState<boolean>(false);
   const [myMates, setMyMates] = useState<User[]>([]);
+  const [myMysteryMates, setMyMysteryMates] = useState<User[]>([]);
   const [receivedPraises, setReceivedPraises] = useState<PraiseMessage[]>([]);
   const [timeCapsule, setTimeCapsule] = useState<TimeCapsule | null>(null);
   const [isLoadingCapsule, setIsLoadingCapsule] = useState<boolean>(false);
@@ -34,13 +35,14 @@ export default function RevealPage() {
       setIsRevealActive(reveal);
 
       if (user) {
-        // Fetch assigned mates
+        // Fetch assigned mates (inbound and outbound)
         const matesRes = await getMatesForUser(user.id);
         if (matesRes.error === 'SUPABASE_UNCONFIGURED') {
           setConfigError(true);
           return;
         }
         setMyMates(matesRes.mates || []);
+        setMyMysteryMates(matesRes.myMysteryMates || []);
 
         // Fetch received praises
         const praisesRes = await getPraises();
@@ -194,30 +196,62 @@ export default function RevealPage() {
           </p>
         </motion.div>
 
-        {/* Section 1: 내가 응원했던 Mystery Mate */}
+        {/* Section 1: 나를 지켜봐 준 Mystery Mate (Inbound) */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-            <Gift className="w-4 h-4 text-purple-600" />
-            내가 응원했던 Mystery Mate
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Gift className="w-4 h-4 text-purple-600" />
+              나를 지켜봐 준 Mystery Mate
+            </h3>
+            <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">
+              {myMysteryMates.length > 0 ? `${myMysteryMates.length}명 공개` : '공개 대기 중'}
+            </span>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {myMates.map((mate) => (
+            {(myMysteryMates.length > 0 ? myMysteryMates : myMates).map((mate) => (
               <div
                 key={mate.id}
-                className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col items-center text-center gap-2"
+                className="p-4 rounded-2xl bg-gradient-to-tr from-purple-50/80 to-sky-50/80 border border-purple-100 shadow-xs flex flex-col items-center text-center gap-2"
               >
-                <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center text-2xl">
+                <div className="w-12 h-12 rounded-full bg-white shadow-xs flex items-center justify-center text-2xl">
                   {mate.avatar || '👤'}
                 </div>
                 <div>
                   <h4 className="text-xs font-black text-slate-900">{mate.name}님</h4>
-                  <span className="text-[10px] text-slate-400 font-medium">{mate.team}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">{mate.team}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Section 2: 내가 칭찬하고 응원했던 동료 (Outbound) */}
+        {myMates.length > 0 && myMysteryMates.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-sky-600" />
+              내가 칭찬하고 응원했던 동료
+            </h3>
+
+            <div className="grid grid-cols-2 gap-3">
+              {myMates.map((mate) => (
+                <div
+                  key={mate.id}
+                  className="p-3.5 rounded-2xl bg-white border border-slate-100 shadow-2xs flex flex-col items-center text-center gap-1.5"
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">
+                    {mate.avatar || '👤'}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">{mate.name}님</h4>
+                    <span className="text-[10px] text-slate-400 font-medium">{mate.team}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Feature 3: Apple Style AI Time Capsule Card (with Export options) */}
         <div className="flex flex-col gap-3">

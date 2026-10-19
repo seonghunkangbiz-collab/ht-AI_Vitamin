@@ -118,7 +118,7 @@ export async function getAllUsers(): Promise<{ users?: User[]; error?: string }>
   }
 }
 
-export async function getMatesForUser(userId: string): Promise<{ mates?: User[]; error?: string }> {
+export async function getMatesForUser(userId: string): Promise<{ mates?: User[]; myMysteryMates?: User[]; error?: string }> {
   const cacheKey = `mates:${userId}`;
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -131,7 +131,7 @@ export async function getMatesForUser(userId: string): Promise<{ mates?: User[];
     if (!res.ok) {
       return { error: data.error };
     }
-    const result = { mates: data.mates || [] };
+    const result = { mates: data.mates || [], myMysteryMates: data.myMysteryMates || [] };
     memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;
   } catch (e: any) {

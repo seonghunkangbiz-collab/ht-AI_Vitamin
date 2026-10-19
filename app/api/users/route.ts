@@ -1,20 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_USERS } from '@/lib/seedData';
+import { requireAdmin, getSessionFromRequest } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
   try {
+    const session = getSessionFromRequest(request);
+    const isAdmin = session?.role === 'admin';
+
     const supabase = getSupabaseServerClient();
     let { data: users, error } = await supabase
       .from('users')
-      .select('id, code, name, team, avatar, role')
+      .select('id, name, team, avatar, role' + (isAdmin ? ', code' : ''))
       .order('name', { ascending: true });
 
     if (error) {
@@ -22,35 +26,39 @@ export async function GET() {
     }
 
     // Auto-seed initial 24 users ONLY if database is completely empty (0 rows)
-    if (!users || users.length === 0) {
+    let rawUsers: any[] = (users || []) as any[];
+    if (rawUsers.length === 0) {
       await supabase.from('users').upsert(INITIAL_USERS);
       const reFetch = await supabase
         .from('users')
-        .select('id, code, name, team, avatar, role')
+        .select('id, name, team, avatar, role' + (isAdmin ? ', code' : ''))
         .order('name', { ascending: true });
-      users = reFetch.data || [];
+      rawUsers = (reFetch.data || []) as any[];
     }
 
-    const formattedUsers = (users || []).map(u => {
-      const matchedSeed = INITIAL_USERS.find(s => s.id === u.id || s.code === u.code);
-      return {
-        id: u.id,
-        code: u.code,
-        name: u.name,
-        team: u.team,
-        avatar: u.avatar,
-        role: u.role,
-        employeeNumber: matchedSeed?.employeeNumber
-      };
-    });
+    // STRICT SANITIZATION: Never leak admin accounts or login credentials to regular users
+    const filteredUsers = isAdmin ? rawUsers : rawUsers.filter(u => u.role !== 'admin');
+    const safeUsers = filteredUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      team: u.team,
+      avatar: u.avatar,
+      role: u.role,
+      ...(isAdmin ? { code: u.code } : {})
+    }));
 
-    return NextResponse.json({ users: formattedUsers });
+    return NextResponse.json({ users: safeUsers });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const adminAuth = await requireAdmin(request);
+  if ('errorResponse' in adminAuth) {
+    return adminAuth.errorResponse;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
@@ -65,7 +73,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('users')
       .upsert(users)
-      .select();
+      .select('id, name, team, avatar, role');
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -8,22 +8,63 @@ const publishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
 
-let serverInstance: SupabaseClient | null = null;
+export class SupabaseSecretKeyMissingError extends Error {
+  constructor(message = 'SUPABASE_SECRET_KEY_MISSING: Operation requires administrative privileges but secret key is not set.') {
+    super(message);
+    this.name = 'SupabaseSecretKeyMissingError';
+  }
+}
 
-export function getSupabaseServerClient(): SupabaseClient {
+let serverClientInstance: SupabaseClient | null = null;
+let adminClientInstance: SupabaseClient | null = null;
+
+export function hasSupabaseSecretKey(): boolean {
+  return Boolean(secretKey && !secretKey.includes('your_secret_key') && !secretKey.includes('your-secret-key'));
+}
+
+/**
+ * Standard server client. Uses publishable key for public reads.
+ * If requireSecret is true, fails closed if secret key is missing.
+ */
+export function getSupabaseServerClient(options?: { requireSecret?: boolean }): SupabaseClient {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase environment variables are missing or invalid.');
   }
 
-  if (!serverInstance) {
-    const key = (secretKey && !secretKey.includes('your-secret-key'))
-      ? secretKey
-      : publishableKey!;
-    serverInstance = createClient(supabaseUrl!, key, {
+  if (options?.requireSecret) {
+    return getSupabaseAdminClient();
+  }
+
+  if (!serverClientInstance) {
+    serverClientInstance = createClient(supabaseUrl!, publishableKey!, {
       auth: {
         persistSession: false
       }
     });
   }
-  return serverInstance;
+  return serverClientInstance;
+}
+
+/**
+ * Strict fail-closed administrative client.
+ * NEVER falls back to publishable key.
+ */
+export function getSupabaseAdminClient(): SupabaseClient {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase environment variables are missing or invalid.');
+  }
+
+  if (!hasSupabaseSecretKey()) {
+    throw new SupabaseSecretKeyMissingError();
+  }
+
+  if (!adminClientInstance) {
+    adminClientInstance = createClient(supabaseUrl!, secretKey!, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    });
+  }
+  return adminClientInstance;
 }

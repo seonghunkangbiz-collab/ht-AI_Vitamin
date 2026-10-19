@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/auth/session';
 
-export async function POST() {
+export async function POST(request: Request) {
+  const adminAuth = await requireAdmin(request);
+  if ('errorResponse' in adminAuth) {
+    return adminAuth.errorResponse;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
@@ -9,7 +15,7 @@ export async function POST() {
   try {
     const supabase = getSupabaseServerClient();
 
-    // Fetch all users and filter non-admin in JS to support NULL role
+    // Fetch all users and filter non-admin in JS
     const { data: allUsers, error: usersErr } = await supabase
       .from('users')
       .select('id, code, name, team, role');

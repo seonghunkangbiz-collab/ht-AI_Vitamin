@@ -46,6 +46,9 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
     if (foundUser) {
       onLoginSuccess(foundUser);
       onClose();
+      if (foundUser.role === 'admin') {
+        window.location.href = '/admin';
+      }
     }
   };
 
@@ -65,7 +68,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-lg">접속 로그인</h3>
-            <p className="text-xs text-slate-500">참여코드 또는 사번을 입력하세요.</p>
+            <p className="text-xs text-slate-500">참여코드, 사번 또는 관리자(ADMIN) 코드를 입력하세요.</p>
           </div>
         </div>
 
@@ -75,14 +78,14 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           <div className="flex flex-col gap-3 mt-2">
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1">
-                참여코드 또는 사번
+                참여코드, 사번 또는 관리자 코드
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="참여코드 또는 사번 입력"
+                  placeholder="참여코드, 사번 또는 ADMIN 코드"
                   className="flex-1 py-3.5 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold text-center tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all uppercase"
                 />
                 <button
@@ -97,21 +100,38 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
           </div>
         ) : (
           <div className="flex flex-col gap-4 mt-2">
-            <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-3">
-              <span className="text-3xl">{foundUser.avatar || '👤'}</span>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-slate-900 text-base">{foundUser.name}님</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-100" />
+            {foundUser.role === 'admin' ? (
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-center gap-3">
+                <span className="text-3xl">👑</span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900 text-base">{foundUser.name}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">ADMIN</span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    운영 관리자 계정으로 확인되었습니다.
+                  </p>
                 </div>
-                <p className="text-xs text-slate-500 font-medium">
-                  {foundUser.team}
-                </p>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-3">
+                <span className="text-3xl">{foundUser.avatar || '👤'}</span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900 text-base">{foundUser.name}님</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-100" />
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {foundUser.team}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-slate-600 text-center">
-              반갑습니다! 본인 계정이 맞으시면 아래 버튼을 눌러 시작하세요.
+              {foundUser.role === 'admin' 
+                ? '관리자 페이지로 이동하여 Reveal Day 운영 화면을 확인하세요.' 
+                : '반갑습니다! 본인 계정이 맞으시면 아래 버튼을 눌러 시작하세요.'}
             </p>
 
             <div className="flex gap-2">
@@ -125,7 +145,7 @@ export default function CodeLoginModal({ isOpen, onClose, onLoginSuccess }: Code
                 onClick={handleConfirmLogin}
                 className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-1"
               >
-                <span>시작하기</span>
+                <span>{foundUser.role === 'admin' ? '관리자 대시보드 이동' : '시작하기'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

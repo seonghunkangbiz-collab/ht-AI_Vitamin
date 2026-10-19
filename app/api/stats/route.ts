@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { ActivityStats } from '@/lib/types';
+import { requireAdmin } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const DEFAULT_REVEAL_DATE = '2026-10-23';
+const DEFAULT_REVEAL_DATE = '2026-10-28';
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -54,7 +55,7 @@ export async function GET() {
 
     const wallViewCount = wallViewRow?.value?.count || 0;
 
-    // Calculate D-Day
+    // Calculate D-Day in KST
     const targetDate = new Date(revealDate);
     const diffTime = targetDate.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const revealDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -86,6 +87,11 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServerClient();
 
     if (action === 'set_reveal_date') {
+      const adminAuth = await requireAdmin(request);
+      if ('errorResponse' in adminAuth) {
+        return adminAuth.errorResponse;
+      }
+
       if (!revealDate) {
         return NextResponse.json({ error: 'revealDate parameter required' }, { status: 400 });
       }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { INITIAL_PRAISES } from '@/lib/seedData';
+import { getSessionFromRequest, requireAuth, requireAdmin } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,10 +11,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const isAdmin = searchParams.get('admin') === 'true';
-
   try {
+    // STRICT ANONYMITY: Only authenticated admins can view senderUserId!
+    const session = getSessionFromRequest(request);
+    let isVerifiedAdmin = false;
+    if (session && session.role === 'admin') {
+      const supabase = getSupabaseServerClient();
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.userId)
+        .maybeSingle();
+      isVerifiedAdmin = dbUser?.role === 'admin';
+    }
+
     const supabase = getSupabaseServerClient();
     let { data: praises, error } = await supabase
       .from('praise_messages')
@@ -50,16 +61,17 @@ export async function GET(request: Request) {
       }
     }
 
-    // Format for frontend & STRICTLY STRIP sender_user_id for non-admin client security!
+    // Format for frontend & STRICTLY STRIP sender_user_id unless verified admin
     const formatted = (praises || []).map(p => ({
       id: p.id,
-      // CRITICAL ANONYMITY RULE: Strip sender_user_id for regular users
-      senderUserId: isAdmin ? p.sender_user_id : undefined,
+      senderUserId: isVerifiedAdmin ? p.sender_user_id : undefined,
       recipientUserId: p.recipient_user_id,
       recipientName: p.recipient_name,
       recipientTeam: p.recipient_team,
       content: p.content,
       refinedContent: p.refined_content,
+      likes: p.likes || 0,
+      likedBy: p.liked_by || [],
       isMatePraise: p.is_mate_praise || false,
       createdAt: p.created_at
     }));
@@ -71,20 +83,30 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = requireAuth(request);
+  if ('errorResponse' in auth) {
+    return auth.errorResponse;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
-  try {
-    const { senderUserId, recipientUserId, recipientName, recipientTeam, content, refinedContent } = await request.json();
+  const { session } = auth;
 
-    if (!senderUserId || !recipientUserId || !content) {
+  try {
+    const { recipientUserId, recipientName, recipientTeam, content, refinedContent } = await request.json();
+
+    if (!recipientUserId || !content) {
       return NextResponse.json({ error: 'Missing required praise fields' }, { status: 400 });
     }
 
+    // Sender is strictly the authenticated session user
+    const senderUserId = session.userId;
+
     const supabase = getSupabaseServerClient();
 
-    // Check if senderUserId has targetUserId as a Mystery Mate in mate_assignments
+    // Check if senderUserId has recipientUserId as a Mystery Mate in mate_assignments
     const { data: mateCheck } = await supabase
       .from('mate_assignments')
       .select('id')
@@ -102,10 +124,12 @@ export async function POST(request: Request) {
         id: newId,
         sender_user_id: senderUserId,
         recipient_user_id: recipientUserId,
-        recipient_name: recipientName,
+        recipient_name: recipientName || '동료',
         recipient_team: recipientTeam || '',
         content,
         refined_content: refinedContent || content,
+        likes: 0,
+        liked_by: [],
         is_mate_praise: isMatePraise,
         created_at: now
       })
@@ -124,6 +148,8 @@ export async function POST(request: Request) {
         recipientTeam: data.recipient_team,
         content: data.content,
         refinedContent: data.refined_content,
+        likes: 0,
+        likedBy: [],
         isMatePraise: data.is_mate_praise,
         createdAt: data.created_at
       }
@@ -134,6 +160,11 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const adminAuth = await requireAdmin(request);
+  if ('errorResponse' in adminAuth) {
+    return adminAuth.errorResponse;
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }

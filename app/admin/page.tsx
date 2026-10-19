@@ -6,6 +6,8 @@ import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PraiseMessage, AISuggestion, ActivityStats } from '@/lib/types';
 import { 
   getCurrentUser, 
+  setCurrentUser,
+  getUserByCode,
   getAllUsers, 
   getPraises, 
   getIsRevealActive, 
@@ -36,7 +38,11 @@ import {
   Plus,
   Calendar,
   Eye,
-  MessageSquare
+  MessageSquare,
+  Monitor,
+  ExternalLink,
+  KeyRound,
+  RefreshCw
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -52,46 +58,104 @@ export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [newSuggestionInput, setNewSuggestionInput] = useState<string>('');
   const [stats, setStats] = useState<ActivityStats | null>(null);
-  const [targetDateInput, setTargetDateInput] = useState<string>('2026-10-23');
+  const [targetDateInput, setTargetDateInput] = useState<string>('2026-10-28');
+  const [revealDayInfo, setRevealDayInfo] = useState<{ status: string; mode: string; hasWarnings: boolean; hasErrors: boolean } | null>(null);
+
+  // Admin Login Form State
+  const [adminCodeInput, setAdminCodeInput] = useState('');
+  const [adminCodeError, setAdminCodeError] = useState<string | null>(null);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+
+  const loadAdminDashboardData = async () => {
+    const allUsersRes = await getAllUsers();
+    if (allUsersRes.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
+    setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
+
+    const allPraisesRes = await getPraises(true);
+    if (allPraisesRes.error === 'SUPABASE_UNCONFIGURED') {
+      setConfigError(true);
+      return;
+    }
+    setPraises(allPraisesRes.praises || []);
+
+    const reveal = await getIsRevealActive();
+    setIsRevealActive(reveal);
+
+    // Fetch AI suggestions
+    const sugRes = await getAISuggestionsList();
+    if (sugRes.suggestions) {
+      setSuggestions(sugRes.suggestions);
+    }
+
+    // Fetch Stats
+    const statsRes = await getActivityStats();
+    if (statsRes.stats) {
+      setStats(statsRes.stats);
+      setTargetDateInput(statsRes.stats.revealDate || '2026-10-28');
+    }
+
+    // Fetch Reveal Day Event Info & Preflight Summary
+    try {
+      const evRes = await fetch('/api/admin/reveal-day/state?eventId=event-live-20261028');
+      const pfRes = await fetch('/api/admin/reveal-day/preflight?eventId=event-live-20261028');
+      if (evRes.ok && pfRes.ok) {
+        const evData = await evRes.json();
+        const pfData = await pfRes.json();
+        setRevealDayInfo({
+          status: evData.event?.status || 'ready',
+          mode: evData.event?.mode || 'live',
+          hasWarnings: pfData.hasWarnings,
+          hasErrors: pfData.hasErrors
+        });
+      }
+    } catch {}
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminCodeError(null);
+    if (!adminCodeInput.trim()) {
+      setAdminCodeError('관리자 코드를 입력해 주세요.');
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    try {
+      const res = await getUserByCode(adminCodeInput.trim());
+      if (res.error) {
+        setAdminCodeError(res.error || '올바르지 않은 관리자 코드입니다.');
+        setIsVerifyingCode(false);
+        return;
+      }
+
+      if (res.user && res.user.role === 'admin') {
+        await setCurrentUser(res.user);
+        setUserState(res.user);
+        await loadAdminDashboardData();
+        showStatus('관리자 인증이 완료되었습니다. 대시보드에 접속했습니다.');
+      } else {
+        setAdminCodeError('입력하신 코드는 관리자 권한이 없습니다. ADMIN 전용 코드를 입력해 주세요.');
+      }
+    } catch (err: any) {
+      setAdminCodeError(err.message || '인증 중 오류가 발생했습니다.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
+    async function checkCurrentSession() {
       const user = await getCurrentUser();
       setUserState(user);
 
       if (user && user.role === 'admin') {
-        const allUsersRes = await getAllUsers();
-        if (allUsersRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
-        }
-        setUsers((allUsersRes.users || []).filter(u => u.role !== 'admin'));
-
-        const allPraisesRes = await getPraises(true);
-        if (allPraisesRes.error === 'SUPABASE_UNCONFIGURED') {
-          setConfigError(true);
-          return;
-        }
-        setPraises(allPraisesRes.praises || []);
-
-        const reveal = await getIsRevealActive();
-        setIsRevealActive(reveal);
-
-        // Fetch AI suggestions
-        const sugRes = await getAISuggestionsList();
-        if (sugRes.suggestions) {
-          setSuggestions(sugRes.suggestions);
-        }
-
-        // Fetch Stats
-        const statsRes = await getActivityStats();
-        if (statsRes.stats) {
-          setStats(statsRes.stats);
-          setTargetDateInput(statsRes.stats.revealDate || '2026-10-23');
-        }
+        await loadAdminDashboardData();
       }
     }
-    loadData();
+    checkCurrentSession();
   }, []);
 
   const handleSeedData = async () => {
@@ -217,22 +281,75 @@ export default function AdminPage() {
   if (!currentUser || currentUser.role !== 'admin') {
     return (
       <MobileLayout>
-        <div className="p-8 text-center flex flex-col items-center justify-center min-h-[60vh] gap-3">
-          <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+        <div className="p-6 text-center flex flex-col items-center justify-center min-h-[65vh] gap-4">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-indigo-500/20 text-amber-500 flex items-center justify-center border border-amber-500/30 shadow-lg">
             <Lock className="w-8 h-8" />
           </div>
-          <h3 className="text-base font-extrabold text-slate-900">
-            접근 권한이 없습니다
-          </h3>
-          <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-            운영자(role=admin) 전용 화면입니다. 참여코드 <code className="bg-slate-200 px-2 py-0.5 rounded font-mono font-bold text-slate-800">VIT-ADMIN</code> 계정으로 로그인해 주세요.
-          </p>
+
+          <div>
+            <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/15 text-amber-700 border border-amber-500/30 uppercase tracking-wider">
+              Admin Authentication
+            </span>
+            <h2 className="text-xl font-black text-slate-900 mt-2 tracking-tight">
+              운영 관리자 인증
+            </h2>
+            <p className="text-xs text-slate-500 max-w-xs leading-relaxed mt-1">
+              HT사업본부 AI Vitamin Program 관리자 및 <strong>Reveal Day 운영 콘솔</strong> 진입을 위해 ADMIN 코드를 입력해 주세요.
+            </p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="w-full max-w-xs flex flex-col gap-3 mt-1">
+            <div className="flex flex-col gap-1 text-left">
+              <label className="text-[11px] font-bold text-slate-700">관리자 인증 코드</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={adminCodeInput}
+                  onChange={(e) => setAdminCodeInput(e.target.value)}
+                  placeholder="ADMIN 코드 입력"
+                  className="w-full py-3.5 px-4 pr-10 rounded-2xl border border-slate-200 bg-white text-slate-900 font-mono font-bold text-center tracking-widest focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
+                  autoFocus
+                />
+                <KeyRound className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {adminCodeError && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold flex items-center gap-1.5 text-left"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{adminCodeError}</span>
+              </motion.div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isVerifyingCode}
+              className="w-full py-3.5 px-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:opacity-95 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
+            >
+              {isVerifyingCode ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>관리자 권한 검증 중...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>관리자 대시보드 진입</span>
+                </>
+              )}
+            </button>
+          </form>
+
           <Link
             href="/"
             prefetch={true}
-            className="mt-2 py-2.5 px-5 bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs"
+            className="text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors mt-2"
           >
-            홈으로 돌아가기
+            ← 홈으로 돌아가기
           </Link>
         </div>
       </MobileLayout>
@@ -243,16 +360,25 @@ export default function AdminPage() {
     <MobileLayout>
       <div className="flex flex-col gap-5 pb-6">
         {/* Top Title */}
-        <div className="flex items-center gap-3">
-          <Link href="/" prefetch={true} className="p-2 rounded-full hover:bg-slate-200/60 text-slate-600 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-amber-600" />
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              운영 관리자 대시보드
-            </h2>
+            <Link href="/" prefetch={true} className="p-2 rounded-full hover:bg-slate-200/60 text-slate-600 transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-amber-600" />
+              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                운영 관리자 대시보드
+              </h2>
+            </div>
           </div>
+
+          <Link
+            href="/admin/reveal-day"
+            className="px-3 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-black text-xs shadow-sm flex items-center gap-1.5 hover:opacity-95 active:scale-95 transition-all shrink-0"
+          >
+            <span>🖥️ Reveal Day 운영</span>
+          </Link>
         </div>
 
         {statusMessage && (
@@ -265,6 +391,69 @@ export default function AdminPage() {
             <span>{statusMessage}</span>
           </motion.div>
         )}
+
+        {/* 2026-10-28 PC Reveal Day Operation Console Entry Card */}
+        <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-500/30 flex flex-col gap-3 relative overflow-hidden ring-2 ring-indigo-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                <Monitor className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">PC Reveal Day 운영</h3>
+                <span className="text-[10px] text-sky-400 font-bold">2026.10.28 (수) 16:00~17:30</span>
+              </div>
+            </div>
+
+            {/* Status Badges */}
+            <div className="flex items-center gap-1.5">
+              {revealDayInfo && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  revealDayInfo.mode === 'live'
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-400/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {revealDayInfo.mode}
+                </span>
+              )}
+              {revealDayInfo?.hasErrors && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>점검 오류</span>
+                </span>
+              )}
+              {revealDayInfo?.hasWarnings && !revealDayInfo?.hasErrors && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  사전 경고
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed font-medium">
+            대형 화면 행사 진행, 리허설, 실시간 참여 및 추첨을 관리합니다.
+          </p>
+
+          <div className="flex gap-2 mt-1">
+            <Link
+              href="/admin/reveal-day"
+              className="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-black text-xs shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+            >
+              <Monitor className="w-4 h-4 text-sky-200" />
+              <span className="text-sm tracking-tight">🖥️ Reveal Day 운영 화면 열기</span>
+            </Link>
+
+            <Link
+              href="/admin/reveal-day"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center justify-center border border-slate-700 shadow-sm"
+              title="새 탭으로 열기"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
 
         {/* Feature 4 Admin: Detailed Activity Summary Stats */}
         <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">

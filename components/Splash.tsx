@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Heart, Users, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, Heart, Users, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SplashProps {
@@ -87,6 +88,16 @@ export default function Splash({ onStart }: SplashProps) {
             <p className="font-semibold text-slate-700">참여코드로 접속</p>
             <p className="text-[10px] text-slate-400">본인에게 발급된 개인 참여코드를 입력하세요.</p>
           </div>
+        </div>
+
+        <div className="mt-2 flex items-center justify-center">
+          <Link
+            href="/admin"
+            className="text-[11px] text-slate-400 hover:text-indigo-600 font-semibold transition-colors flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-slate-100"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+            <span>운영 관리자 / Reveal Day 관리 접속</span>
+          </Link>
         </div>
       </motion.div>
     </div>

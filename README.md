@@ -382,7 +382,7 @@ users.forEach((user) => {
 ### 5.7 관리자 센터 (Admin Dashboard)
 * **구현 위치**: `app/admin/page.tsx`
 * **동작 원리**:
-  - 관리자 전용 계정(`VIT-ADMIN`)으로 로그인 시 진입 가능합니다.
+  - 환경변수(`ADMIN_CODE` 또는 `ADMIN_CODE_HASH`)로 설정된 관리자 인증 코드로 로그인 시 안전한 HttpOnly 세션 쿠키가 발급되며 진입 가능합니다.
   - **활동 통계**: 누적 칭찬 수, 주간 칭찬 수, 등록 메모 수, 칭찬의 벽 조회수, D-Day 카운트다운을 한눈에 파악합니다.
   - **셔플 배정 실행**: 모달 확인을 거쳐 전체 임직원 대상 크로스팀 셔플을 1초 만에 재배정합니다.
   - **리빌 데이 On/Off 제어**: 클릭 한 번으로 전사 리빌 데이 화면을 즉시 개방하거나 비공개로 전환합니다.
@@ -428,6 +428,11 @@ SUPABASE_URL=https://<your-project-id>.supabase.co
 
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_<your-key>
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_<your-key>
+SUPABASE_SECRET_KEY=your_secret_key_here
+
+# Session & Admin Security
+SESSION_SECRET=your_32_character_long_session_secret_key
+ADMIN_CODE=your_custom_admin_access_code
 
 # OpenAI API Configuration (Optional: 고품질 스마트 Fallback 자동 탑재)
 OPENAI_API_KEY=sk-proj-<your-openai-api-key>
@@ -435,7 +440,7 @@ OPENAI_API_KEY=sk-proj-<your-openai-api-key>
 
 ### 7.2 데이터베이스 초기화 및 시딩
 1. Supabase SQL 에디터에서 `supabase_schema.sql` 스크립트를 실행하여 5개 테이블 및 인덱스를 생성합니다.
-2. 애플리케이션 실행 후 관리자 계정(`VIT-ADMIN`)으로 로그인합니다.
+2. 애플리케이션 실행 후 환경변수로 설정한 관리자 코드로 로그인합니다.
 3. `/admin` 페이지에서 **"초기 데이터 시딩"** 및 **"Mystery Mate 2명 셔플 배정"** 버튼을 순차적으로 실행하여 본부 임직원 24명을 등록하고 메이트를 배정합니다.
 
 ### 7.3 일일 점검 및 운영 스케줄링
