@@ -24,7 +24,7 @@ interface OperatorPanelProps {
   event: RevealEvent;
   publicState: RevealPublicState;
   onTransitionSegment: (nextSegment: RevealSegment) => void;
-  onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch') => void;
+  onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => void;
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
   onVoidDraw?: (drawId: string, reason: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
@@ -121,7 +121,41 @@ export default function OperatorPanel({
         {/* Dynamic Controls based on Segment */}
         {currentSegment === 'mate_reveal' && (
           <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-2.5">
-            <div className="text-[11px] font-bold text-sky-400">메이트 공개 컨트롤</div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-sky-400">메이트 공개 컨트롤</span>
+              <span className="text-[10px] font-mono text-slate-400">
+                공개: <strong className="text-sky-300">{publicState.currentRevealIndex || 0}</strong>건 | 배치: <strong className="text-indigo-300">{(publicState.currentBatchIndex || 0) + 1}</strong>/6
+              </span>
+            </div>
+
+            {/* Batch Navigation */}
+            <div className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => onAdvanceMateIndex('prev_batch')}
+                disabled={isProcessing || (publicState.currentBatchIndex || 0) <= 0}
+                className="py-1 px-2.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[11px] font-bold text-slate-300 flex items-center gap-1 transition-all"
+              >
+                <ChevronLeft className="w-3 h-3" />
+                <span>이전 배치</span>
+              </button>
+
+              <span className="text-xs font-black text-indigo-300 font-mono">
+                Batch {(publicState.currentBatchIndex || 0) + 1} / 6
+              </span>
+
+              <button
+                type="button"
+                onClick={() => onAdvanceMateIndex('next_batch')}
+                disabled={isProcessing || (publicState.currentBatchIndex || 0) >= 5}
+                className="py-1 px-2.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[11px] font-bold text-slate-300 flex items-center gap-1 transition-all"
+              >
+                <span>다음 배치</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Reveal Step Buttons */}
             <div className="flex gap-2">
               <button
                 onClick={() => onAdvanceMateIndex('reveal_next')}
@@ -139,29 +173,43 @@ export default function OperatorPanel({
                 title="시간 부족 시 현재 배치 일괄 공개"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>배치 일괄 공개</span>
+                <span>현재 배치 일괄 공개</span>
               </button>
             </div>
             <p className="text-[10px] text-slate-500">
-              * 공개 단계는 단조 증가하며 되돌려지지 않습니다.
+              * 일괄 공개 시 현재 배치의 모든 메이트 관계가 즉시 공개되며 화면에 유지됩니다.
             </p>
           </div>
         )}
 
         {currentSegment === 'lucky_draw' && (
           <div className="p-3.5 rounded-xl bg-slate-950/70 border border-amber-500/30 flex flex-col gap-2.5">
-            <div className="text-[11px] font-bold text-amber-400">AI Lucky Draw 추첨 실행</div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-amber-400">AI Lucky Draw 추첨 실행</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium">전체 24명 자동 풀 등록</span>
+            </div>
+
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="text-[10px] text-slate-400 block mb-1">라운드</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={drawRound}
-                  onChange={(e) => setDrawRound(Number(e.target.value))}
-                  className="w-full py-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={drawRound}
+                    onChange={(e) => setDrawRound(Number(e.target.value))}
+                    className="w-full py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDrawRound(prev => Math.min(10, prev + 1))}
+                    className="py-1 px-1.5 rounded bg-slate-800 text-[10px] text-slate-300 font-bold hover:bg-slate-700"
+                    title="다음 라운드로 +1"
+                  >
+                    +1
+                  </button>
+                </div>
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] text-slate-400 block mb-1">상품명</label>
@@ -169,8 +217,39 @@ export default function OperatorPanel({
                   type="text"
                   value={drawPrizeName}
                   onChange={(e) => setDrawPrizeName(e.target.value)}
+                  placeholder="추첨 상품명 입력"
                   className="w-full py-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs"
                 />
+              </div>
+            </div>
+
+            {/* Quick Prize Presets */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] text-slate-400">상품 프리셋 빠른 선택:</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { round: 1, name: '1등: 소니 노이즈캔슬링 헤드폰' },
+                  { round: 2, name: '2등: 신세계 상품권 10만원권' },
+                  { round: 3, name: '3등: 배달의민족 상품권 5만원권' },
+                  { round: 4, name: '특별상: 스타벅스 e-카드 3만원권' },
+                  { round: 5, name: '행운상: 올리브영 기프트카드 2만원권' },
+                ].map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      setDrawRound(preset.round);
+                      setDrawPrizeName(preset.name);
+                    }}
+                    className={`text-[10px] px-2 py-0.5 rounded-md border transition-all ${
+                      drawPrizeName === preset.name
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    {preset.name.split(':')[0]}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -182,6 +261,9 @@ export default function OperatorPanel({
               <Gift className="w-4 h-4" />
               <span>Round {drawRound} 서버 난수 추첨 실행</span>
             </button>
+            <p className="text-[10px] text-slate-500">
+              * CSPRNG 난수 알고리즘으로 이전 라운드 당첨자는 자동 제외(1인 1당첨)됩니다.
+            </p>
           </div>
         )}
 

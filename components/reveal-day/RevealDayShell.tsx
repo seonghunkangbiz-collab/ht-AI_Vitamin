@@ -32,7 +32,7 @@ interface RevealDayShellProps {
   connectionStatus: 'connected' | 'polling' | 'disconnected';
   lastSyncTime: Date;
   onTransitionSegment: (segment: RevealSegment) => void;
-  onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch') => void;
+  onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => void;
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
   onRefreshData?: () => void;

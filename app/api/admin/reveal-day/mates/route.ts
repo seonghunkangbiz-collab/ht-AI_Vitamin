@@ -132,16 +132,29 @@ export async function POST(request: Request) {
       .eq('id', eventId)
       .single();
 
+    const currentBatch = event?.current_batch_index || 0;
     const currentIndex = event?.current_reveal_index || 0;
     const allPairs = await getEventMatePairs(eventId);
+    const totalBatches = Math.max(1, Math.ceil(allPairs.length / 8));
     let nextIndex = currentIndex;
+    let nextBatchIndex = currentBatch;
 
     if (action === 'reveal_next') {
       nextIndex = Math.min(allPairs.length, currentIndex + 1);
+      nextBatchIndex = Math.min(totalBatches - 1, Math.floor((nextIndex > 0 ? nextIndex - 1 : 0) / 8));
     } else if (action === 'reveal_batch') {
-      // Reveal all pairs belonging to current batch (next 8 pairs)
-      const currentBatch = Math.floor(currentIndex / 8);
+      // Reveal all pairs up to and including the current batch, keeping the current batch view active!
       nextIndex = Math.min(allPairs.length, (currentBatch + 1) * 8);
+      nextBatchIndex = currentBatch;
+    } else if (action === 'next_batch') {
+      nextBatchIndex = Math.min(totalBatches - 1, currentBatch + 1);
+    } else if (action === 'prev_batch') {
+      nextBatchIndex = Math.max(0, currentBatch - 1);
+    } else if (action === 'set_batch') {
+      const { batchIndex } = body;
+      if (typeof batchIndex === 'number') {
+        nextBatchIndex = Math.max(0, Math.min(totalBatches - 1, batchIndex));
+      }
     } else if (action === 'set_index') {
       if (typeof targetIndex !== 'number') {
         return NextResponse.json({ error: 'targetIndex required' }, { status: 400 });
@@ -151,14 +164,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'CANNOT_REWIND_IN_LIVE: 라이브 모드에서는 공개 단계를 되돌릴 수 없습니다.' }, { status: 400 });
       }
       nextIndex = Math.max(0, Math.min(allPairs.length, targetIndex));
+      nextBatchIndex = Math.min(totalBatches - 1, Math.floor((nextIndex > 0 ? nextIndex - 1 : 0) / 8));
     } else if (action === 'reset_rehearsal') {
       if (event?.mode !== 'rehearsal') {
         return NextResponse.json({ error: 'Reset is only allowed in rehearsal mode.' }, { status: 400 });
       }
       nextIndex = 0;
+      nextBatchIndex = 0;
     }
 
-    const nextBatchIndex = Math.floor(nextIndex / 8);
     const now = new Date().toISOString();
 
     await supabase

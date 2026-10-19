@@ -153,7 +153,7 @@ export default function AdminRevealDayPage() {
   };
 
   // 4. Mate Reveal Advance Handler
-  const handleAdvanceMateIndex = async (type: 'reveal_next' | 'reveal_batch') => {
+  const handleAdvanceMateIndex = async (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => {
     try {
       const res = await fetch('/api/admin/reveal-day/mates', {
         method: 'POST',
