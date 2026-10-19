@@ -22,7 +22,9 @@ import {
   Clock, 
   HelpCircle,
   FileText,
-  RotateCcw
+  RotateCcw,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 
 function LiveAttendeeContent() {
@@ -43,6 +45,9 @@ function LiveAttendeeContent() {
   const [hasGuessed, setHasGuessed] = useState(false);
   const [selectedGuess, setSelectedGuess] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [customCheerText, setCustomCheerText] = useState('');
+  const [isSendingCheer, setIsSendingCheer] = useState(false);
+  const [cheerFeedback, setCheerFeedback] = useState<string | null>(null);
 
   // Realtime hook
   const { publicState } = useRevealDayRealtime({ eventId });
@@ -177,33 +182,65 @@ function LiveAttendeeContent() {
     }
   };
 
-  // Emoji Reaction Sender
-  const handleSendReaction = async (reaction: 'heart' | 'clap' | 'party' | 'sparkle' | 'fire') => {
+  // Real-time Cheer / Reaction Sender
+  const handleSendCheer = async (reaction: string = 'clap', message?: string) => {
+    const senderName = currentUserState?.name || '익명 메이트';
+    const senderTeam = currentUserState?.team || '';
+    const trimmedMessage = message?.trim();
+
+    if (isSendingCheer && trimmedMessage) return;
+    if (trimmedMessage) setIsSendingCheer(true);
+
+    // 1. Optimistic Realtime Broadcast for instant appearance on projector stage
     try {
-      fetch('/api/reveal-day/interactions', {
+      const sb = getSupabaseClient();
+      sb.channel(`reveal_channel_${eventId}`).send({
+        type: 'broadcast',
+        event: 'cheer',
+        payload: {
+          reaction,
+          message: trimmedMessage || undefined,
+          senderName,
+          senderTeam,
+          id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
+        }
+      });
+    } catch {}
+
+    // 2. Confetti on attendee device
+    try {
+      confetti({
+        particleCount: trimmedMessage ? 35 : 16,
+        spread: trimmedMessage ? 55 : 35,
+        origin: { y: 0.85 },
+        scalar: 0.85
+      });
+    } catch {}
+
+    // 3. Persist to API
+    try {
+      await fetch('/api/reveal-day/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, action: 'reaction', reaction })
+        body: JSON.stringify({
+          eventId,
+          action: 'cheer',
+          reaction,
+          message: trimmedMessage || undefined
+        })
       });
-      // Broadcast reaction for instant visual feedback on stage
-      try {
-        const sb = getSupabaseClient();
-        sb.channel(`reveal_channel_${eventId}`).send({
-          type: 'broadcast',
-          event: 'reaction',
-          payload: { reaction }
-        });
-      } catch {}
-      try {
-        confetti({
-          particleCount: 15,
-          spread: 40,
-          origin: { y: 0.85 },
-          scalar: 0.8
-        });
-      } catch {}
     } catch {}
+
+    if (trimmedMessage) {
+      setCustomCheerText('');
+      setIsSendingCheer(false);
+      setCheerFeedback('무대로 응원 메시지가 전송되었습니다! ✨');
+      setTimeout(() => setCheerFeedback(null), 2500);
+    }
   };
+
+  // Backwards compatibility alias
+  const handleSendReaction = (reaction: any) => handleSendCheer(reaction);
 
   // Open Personal Capsule Handler
   const handleOpenMyCapsule = async () => {
@@ -463,30 +500,93 @@ function LiveAttendeeContent() {
           </div>
         )}
 
-        {/* Real-time Emoji Reactions Card (Available throughout) */}
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col gap-2.5">
+        {/* Real-time Cheering & Reactions Section */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">무대로 실시간 반응 보내기</span>
-            <span className="text-[10px] text-slate-400">터치 시 무대 화면에 표시</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <span className="text-xs font-bold text-slate-800">무대로 실시간 응원 & 반응 보내기</span>
+            </div>
+            <span className="text-[10px] text-slate-400">빔프로젝터에 즉시 표시</span>
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          {/* 8 Instant Emoji Reactions */}
+          <div className="grid grid-cols-4 gap-2">
             {[
-              { emoji: '❤️', label: '하트', type: 'heart' as const },
-              { emoji: '👏', label: '박수', type: 'clap' as const },
-              { emoji: '🎉', label: '축하', type: 'party' as const },
-              { emoji: '💡', label: '공감', type: 'sparkle' as const },
-              { emoji: '🔥', label: '응원', type: 'fire' as const },
+              { emoji: '❤️', label: '하트', type: 'heart' },
+              { emoji: '👏', label: '박수', type: 'clap' },
+              { emoji: '🎉', label: '축하', type: 'party' },
+              { emoji: '✨', label: '감동', type: 'sparkle' },
+              { emoji: '🔥', label: '열정', type: 'fire' },
+              { emoji: '☕️', label: '힐링', type: 'coffee' },
+              { emoji: '🍕', label: '파티', type: 'pizza' },
+              { emoji: '🚀', label: '화이팅', type: 'rocket' },
             ].map((btn) => (
               <button
                 key={btn.type}
-                onClick={() => handleSendReaction(btn.type)}
-                className="py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 active:scale-90 border border-slate-200 transition-all flex flex-col items-center justify-center"
+                onClick={() => handleSendCheer(btn.type)}
+                className="py-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 active:scale-90 border border-slate-200/80 transition-all flex flex-col items-center justify-center shadow-xs"
               >
                 <span className="text-2xl">{btn.emoji}</span>
-                <span className="text-[10px] text-slate-500 font-medium mt-1">{btn.label}</span>
+                <span className="text-[10px] text-slate-500 font-medium mt-0.5">{btn.label}</span>
               </button>
             ))}
+          </div>
+
+          {/* Quick Cheering Preset Pills */}
+          <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-500">한 줄 응원 바로 보내기</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { text: '우리 메이트 최고! 👏', emoji: 'clap' },
+                { text: '화이팅! 힘내요 💪', emoji: 'rocket' },
+                { text: '진짜 감동이에요 ❤️', emoji: 'heart' },
+                { text: '대박! 축하합니다 🎉', emoji: 'party' },
+                { text: '누구신지 너무 궁금해요 ✨', emoji: 'sparkle' },
+                { text: '비타민 파티 가자! 🍕', emoji: 'pizza' }
+              ].map((pill, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendCheer(pill.emoji, pill.text)}
+                  className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 text-slate-700 text-xs font-medium border border-slate-200/60 transition-all"
+                >
+                  {pill.text}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Cheering Message Input */}
+          <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={customCheerText}
+                onChange={(e) => setCustomCheerText(e.target.value.slice(0, 45))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && customCheerText.trim()) {
+                    e.preventDefault();
+                    handleSendCheer('heart', customCheerText);
+                  }
+                }}
+                placeholder="무대에 띄울 메시지 (최대 40자)"
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+              />
+              <button
+                type="button"
+                disabled={!customCheerText.trim() || isSendingCheer}
+                onClick={() => handleSendCheer('heart', customCheerText)}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+              >
+                <span>전송</span>
+                <Send className="w-3 h-3" />
+              </button>
+            </div>
+            {cheerFeedback && (
+              <span className="text-[11px] text-emerald-600 font-semibold animate-pulse text-center pt-0.5">
+                {cheerFeedback}
+              </span>
+            )}
           </div>
         </div>
 

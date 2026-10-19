@@ -19,7 +19,8 @@ import {
   Monitor, 
   Eye, 
   EyeOff,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 
 interface RevealDayShellProps {
@@ -228,6 +229,21 @@ export default function RevealDayShell({
             <span className="font-bold text-white">{publicState.checkinCount}</span>
             <span className="text-slate-500 text-[10px]">/ 24명</span>
           </div>
+
+          {/* Projector Display Window (Dual Monitor Support) */}
+          {!isDisplayOnly && (
+            <button
+              onClick={() => {
+                const url = `/admin/reveal-day/display?mode=${publicState.mode}&eventId=${event.id}`;
+                window.open(url, '_blank', 'noopener,noreferrer');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white border border-indigo-500/40 text-xs font-semibold transition-all shadow-sm shadow-indigo-950/40"
+              title="빔프로젝터용 무대 전체 화면을 새 창으로 엽니다 (빔프로젝터/서브 모니터로 드래그)"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">빔프로젝터 화면 열기</span>
+            </button>
+          )}
 
           {/* Hide / Show Controls in Presentation View */}
           {!isDisplayOnly && (

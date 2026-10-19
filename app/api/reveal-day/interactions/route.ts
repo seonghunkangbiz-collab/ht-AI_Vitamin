@@ -148,13 +148,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, isCheckedIn: false, checkinCount: count || 0 });
     }
 
-    if (action === 'reaction') {
-      const { reaction } = body; // 'heart' | 'clap' | 'party' | 'sparkle' | 'fire'
-      if (!['heart', 'clap', 'party', 'sparkle', 'fire'].includes(reaction)) {
-        return NextResponse.json({ error: 'Invalid reaction type' }, { status: 400 });
-      }
+    if (action === 'reaction' || action === 'cheer') {
+      const { reaction, message } = body;
+      const validReactions = ['heart', 'clap', 'party', 'sparkle', 'fire', 'coffee', 'pizza', 'rocket'];
+      const cleanReaction = validReactions.includes(reaction) ? reaction : 'heart';
+      const cleanMessage = message ? String(message).trim().slice(0, 60) : null;
 
-      // Read current counts
+      // 1. Read current counts
       const { data: pubState } = await supabase
         .from('reveal_public_state')
         .select('reaction_counts')
@@ -162,7 +162,9 @@ export async function POST(request: Request) {
         .single();
 
       const counts = pubState?.reaction_counts || { heart: 0, clap: 0, party: 0, sparkle: 0, fire: 0 };
-      counts[reaction] = (counts[reaction] || 0) + 1;
+      if (counts[cleanReaction] !== undefined) {
+        counts[cleanReaction] = (counts[cleanReaction] || 0) + 1;
+      }
 
       await supabase
         .from('reveal_public_state')
@@ -172,7 +174,39 @@ export async function POST(request: Request) {
         })
         .eq('event_id', eventId);
 
-      return NextResponse.json({ success: true, reactionCounts: counts });
+      // 2. Persist in interactions
+      const cheerItem = {
+        id: `cheer-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        eventId,
+        userId: session.userId,
+        senderName: session.name,
+        senderTeam: session.team,
+        reaction: cleanReaction,
+        message: cleanMessage,
+        timestamp: Date.now()
+      };
+
+      await supabase
+        .from('reveal_interactions')
+        .insert({
+          id: cheerItem.id,
+          event_id: eventId,
+          user_id: session.userId,
+          type: 'reaction',
+          payload: {
+            reaction: cleanReaction,
+            message: cleanMessage,
+            senderName: session.name,
+            senderTeam: session.team
+          },
+          created_at: now
+        });
+
+      return NextResponse.json({
+        success: true,
+        cheer: cheerItem,
+        reactionCounts: counts
+      });
     }
 
     if (action === 'guess') {

@@ -11,6 +11,7 @@ import LuckyDrawSegment from './segments/LuckyDrawSegment';
 import SongSegment from './segments/SongSegment';
 import ClosingSegment from './segments/ClosingSegment';
 import PizzaPartySegment from './segments/PizzaPartySegment';
+import CheerOverlay from './CheerOverlay';
 import { AlertTriangle, Clock } from 'lucide-react';
 
 interface StageCanvasProps {
@@ -64,6 +65,9 @@ export default function StageCanvas({
   // 3. 16:9 Presentation Stage
   return (
     <div className="w-full h-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
+      {/* Real-time Cheering Overlay (Floating Emojis & Message Toasts) */}
+      <CheerOverlay eventId={publicState.eventId} />
+
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSegment}
