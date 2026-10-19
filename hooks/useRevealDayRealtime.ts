@@ -87,6 +87,12 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             fetchLatestState();
           }
         })
+        .on('broadcast', { event: 'checkin_reset' }, () => {
+          if (isMountedRef.current) {
+            setPublicState(prev => prev ? { ...prev, checkinCount: 0 } : null);
+            fetchLatestState();
+          }
+        })
         .on('broadcast', { event: 'reaction' }, (payload) => {
           if (isMountedRef.current) {
             if (payload?.payload?.reactionCounts) {

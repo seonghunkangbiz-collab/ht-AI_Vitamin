@@ -35,6 +35,7 @@ interface RevealDayShellProps {
   onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => void;
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
+  onResetCheckins?: () => void;
   onRefreshData?: () => void;
   isDisplayOnly?: boolean;
 }
@@ -52,6 +53,7 @@ export default function RevealDayShell({
   onAdvanceMateIndex,
   onExecuteDraw,
   onToggleEmergency,
+  onResetCheckins,
   onRefreshData,
   isDisplayOnly = false
 }: RevealDayShellProps) {
@@ -287,6 +289,7 @@ export default function RevealDayShell({
               onAdvanceMateIndex={onAdvanceMateIndex}
               onExecuteDraw={onExecuteDraw}
               onToggleEmergency={onToggleEmergency}
+              onResetCheckins={onResetCheckins}
               onOpenPreflight={() => setShowPreflight(true)}
             />
           </aside>

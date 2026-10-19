@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import StageCanvas from '@/components/reveal-day/StageCanvas';
 import { useRevealDayRealtime } from '@/hooks/useRevealDayRealtime';
 import { MatePairReveal, RevealTimeCapsuleItem, RevealDrawItem } from '@/lib/reveal-day/types';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
-export default function DisplayPage() {
-  const eventId = 'event-live-20261028';
+function DisplayContent() {
+  const searchParams = useSearchParams();
+  const queryEventId = searchParams.get('eventId');
+  const queryMode = searchParams.get('mode');
+  const eventId = queryEventId || (queryMode === 'rehearsal' ? 'event-rehearsal' : 'event-live-20261028');
 
   const [matePairs, setMatePairs] = useState<MatePairReveal[]>([]);
   const [capsules, setCapsules] = useState<RevealTimeCapsuleItem[]>([]);
@@ -90,5 +94,19 @@ export default function DisplayPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function DisplayPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-screen h-screen bg-slate-950 flex items-center justify-center text-white">
+          <div className="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <DisplayContent />
+    </Suspense>
   );
 }

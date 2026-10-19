@@ -234,6 +234,38 @@ export default function AdminRevealDayPage() {
     } catch {}
   };
 
+  // 7. Reset Checkins Handler
+  const handleResetCheckins = async () => {
+    try {
+      const res = await fetch('/api/admin/reveal-day/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          action: 'reset_checkins'
+        })
+      });
+
+      if (res.ok) {
+        refetchState();
+        try {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'checkin_reset',
+            payload: { checkinCount: 0 }
+          });
+        } catch {}
+        alert(`[${mode === 'rehearsal' ? '리허설' : '라이브'}] 체크인 세션이 초기화되었습니다. (체크인 수: 0명)`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`초기화 실패: ${err.error || '오류 발생'}`);
+      }
+    } catch (e: any) {
+      alert(`초기화 통신 오류: ${e.message}`);
+    }
+  };
+
   if (!isAdminChecked || !eventData || !publicState) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
@@ -283,6 +315,7 @@ export default function AdminRevealDayPage() {
         onAdvanceMateIndex={handleAdvanceMateIndex}
         onExecuteDraw={handleExecuteDraw}
         onToggleEmergency={handleToggleEmergency}
+        onResetCheckins={handleResetCheckins}
         onRefreshData={fetchAllData}
         isDisplayOnly={false}
       />

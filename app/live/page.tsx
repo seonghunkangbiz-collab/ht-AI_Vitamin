@@ -21,7 +21,8 @@ import {
   ArrowRight, 
   Clock, 
   HelpCircle,
-  FileText
+  FileText,
+  RotateCcw
 } from 'lucide-react';
 
 function LiveAttendeeContent() {
@@ -100,6 +101,22 @@ function LiveAttendeeContent() {
     return () => clearInterval(interval);
   }, [currentUserState, eventId, myWinningPrize]);
 
+  // Listen to checkin_reset broadcast to sync reset from admin
+  useEffect(() => {
+    try {
+      const sb = getSupabaseClient();
+      const channel = sb
+        .channel(`live_attendee_${eventId}`)
+        .on('broadcast', { event: 'checkin_reset' }, () => {
+          setIsCheckedIn(false);
+        })
+        .subscribe();
+      return () => {
+        sb.removeChannel(channel);
+      };
+    } catch {}
+  }, [eventId]);
+
   // Checkin Handler
   const handleCheckin = async () => {
     try {
@@ -126,6 +143,34 @@ function LiveAttendeeContent() {
       } else {
         const data = await res.json().catch(() => ({}));
         alert(`체크인 실패: ${data.error || '잠시 후 다시 시도해 주세요.'}`);
+      }
+    } catch (e: any) {
+      alert(`네트워크 오류: ${e.message}`);
+    }
+  };
+
+  // Cancel Checkin Handler
+  const handleCancelCheckin = async () => {
+    if (!confirm('체크인을 취소하시겠습니까? 다시 체크인 버튼을 눌러 언제든 참여할 수 있습니다.')) return;
+    try {
+      const res = await fetch('/api/reveal-day/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, action: 'uncheckin' })
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setIsCheckedIn(false);
+        try {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'checkin',
+            payload: { checkinCount: data.checkinCount }
+          });
+        } catch {}
+      } else {
+        alert('체크인 취소에 실패했습니다.');
       }
     } catch (e: any) {
       alert(`네트워크 오류: ${e.message}`);
@@ -195,6 +240,46 @@ function LiveAttendeeContent() {
   return (
     <MobileLayout>
       <div className="flex flex-col gap-4 pb-12">
+        {/* Mode Selector Pill & Account Switcher */}
+        <div className="flex items-center justify-between px-1 pt-1">
+          <div className="flex items-center gap-1 p-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] shadow-sm">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/live?mode=live&eventId=event-live-20261028';
+              }}
+              className={`px-3 py-1 rounded-full font-bold transition-all ${
+                !isRehearsal
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              본행사 LIVE
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/live?mode=rehearsal&eventId=event-rehearsal';
+              }}
+              className={`px-3 py-1 rounded-full font-bold transition-all ${
+                isRehearsal
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              리허설 모드
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(true)}
+            className="text-xs text-sky-600 hover:text-sky-700 font-bold px-2.5 py-1 rounded-full bg-sky-50 border border-sky-100 transition-all flex items-center gap-1"
+          >
+            <span>사원 변경</span>
+          </button>
+        </div>
+
         {/* Top Header Card */}
         <div className="p-5 rounded-3xl bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white shadow-xl relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
@@ -203,7 +288,7 @@ function LiveAttendeeContent() {
             </span>
             <div className="flex items-center gap-1.5 text-xs text-sky-200">
               <span className={`w-2 h-2 rounded-full ${isRehearsal ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
-              <span>{isRehearsal ? '리허설 무대 동기화' : '무대 동기화 중'}</span>
+              <span>{isRehearsal ? '리허설 채널 동기화' : '본행사 무대 동기화'}</span>
             </div>
           </div>
 
@@ -252,18 +337,40 @@ function LiveAttendeeContent() {
         {/* Dynamic Interactive Segment Section */}
         {currentSegment === 'opening' && (
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-              <Sparkles className="w-4 h-4 text-sky-500" />
-              <span>참석자 체크인</span>
+            <div className="flex items-center justify-between text-slate-900 font-bold text-sm">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-sky-500" />
+                <span>참석자 체크인</span>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                isRehearsal ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
+              }`}>
+                {isRehearsal ? '리허설 세션' : '본행사 LIVE 세션'}
+              </span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
               무대 시작 전, 본인 확인 및 체크인을 완료해 주세요. 체크인 시 Lucky Draw 추첨 풀에 자동 등록됩니다.
             </p>
 
             {isCheckedIn ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center gap-2 text-emerald-600 font-bold text-sm">
-                <CheckCircle2 className="w-5 h-5" />
-                <span>체크인이 완료되었습니다.</span>
+              <div className="flex flex-col gap-2">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between text-emerald-700 font-bold text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <span>체크인이 완료되었습니다.</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-800">
+                    추첨 풀 등록됨
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelCheckin}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-red-600 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>체크인 취소 / 세션 종료</span>
+                </button>
               </div>
             ) : (
               <button

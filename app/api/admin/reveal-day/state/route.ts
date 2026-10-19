@@ -190,6 +190,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, status });
     }
 
+    if (action === 'reset_checkins') {
+      const supabase = getSupabaseServerClient();
+      const now = new Date().toISOString();
+
+      // 1. Delete all checkin interactions for this specific eventId only
+      const { error: delErr } = await supabase
+        .from('reveal_interactions')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('type', 'checkin');
+
+      if (delErr) {
+        return NextResponse.json({ error: delErr.message }, { status: 500 });
+      }
+
+      // 2. Reset checkin_count to 0 in reveal_public_state
+      const { error: updErr } = await supabase
+        .from('reveal_public_state')
+        .update({
+          checkin_count: 0,
+          updated_at: now
+        })
+        .eq('event_id', eventId);
+
+      if (updErr) {
+        return NextResponse.json({ error: updErr.message }, { status: 500 });
+      }
+
+      // 3. Audit log
+      await supabase.from('reveal_audit_logs').insert({
+        event_id: eventId,
+        actor_id: session.userId,
+        actor_name: session.name,
+        action: 'RESET_CHECKINS',
+        payload: { eventId, resetBy: session.name },
+        created_at: now
+      });
+
+      return NextResponse.json({ success: true, checkinCount: 0 });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

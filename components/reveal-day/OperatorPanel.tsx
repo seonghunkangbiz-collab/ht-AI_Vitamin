@@ -28,6 +28,7 @@ interface OperatorPanelProps {
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
   onVoidDraw?: (drawId: string, reason: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
+  onResetCheckins?: () => void;
   onOpenPreflight?: () => void;
   isProcessing?: boolean;
 }
@@ -39,6 +40,7 @@ export default function OperatorPanel({
   onAdvanceMateIndex,
   onExecuteDraw,
   onToggleEmergency,
+  onResetCheckins,
   onOpenPreflight,
   isProcessing
 }: OperatorPanelProps) {
@@ -119,6 +121,32 @@ export default function OperatorPanel({
         </div>
 
         {/* Dynamic Controls based on Segment */}
+        {currentSegment === 'opening' && (
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-sky-500/30 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-sky-400">참석자 체크인 세션 관리</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-bold">
+                체크인: <strong>{publicState.checkinCount || 0}</strong> / 24명
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              화면의 QR을 스캔한 참가자들이 모바일에서 실시간 체크인 중입니다.
+              <span className="block text-[10px] text-amber-300/90 mt-1">
+                * 현재 채널: {event.mode === 'rehearsal' ? '🛠️ 리허설 세션 (event-rehearsal)' : '🟢 본행사 LIVE 세션 (event-live-20261028)'}
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal('reset_checkins')}
+              disabled={isProcessing}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-red-950/60 hover:border-red-500/60 border border-slate-700 text-xs font-bold text-slate-300 hover:text-red-300 transition-all flex items-center justify-center gap-1.5 shadow"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-red-400" />
+              <span>체크인 세션 초기화 / 종료 ({event.mode === 'rehearsal' ? '리허설' : '라이브'})</span>
+            </button>
+          </div>
+        )}
+
         {currentSegment === 'mate_reveal' && (
           <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
@@ -447,6 +475,41 @@ export default function OperatorPanel({
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-500"
               >
                 최종 종료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal === 'reset_checkins' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-red-500/30 rounded-3xl p-6 max-w-sm w-full text-white shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <RotateCcw className="w-6 h-6" />
+              <h3 className="font-bold text-base">체크인 세션 초기화 / 종료</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              현재 <strong className="text-amber-400">{event.mode === 'rehearsal' ? '리허설 모드' : '라이브 모드'}</strong>에 등록된 모든 참석자 체크인({publicState.checkinCount || 0}명)을 초기화하고 세션을 종료하시겠습니까?
+              <br /><br />
+              <span className="text-amber-300 font-medium">
+                * 참석자 모바일 화면의 체크인 상태도 실시간으로 즉시 미체크인으로 초기화되며 다시 체크인할 수 있게 됩니다.
+              </span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs font-bold hover:bg-slate-700"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(null);
+                  if (onResetCheckins) onResetCheckins();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-500 shadow-lg shadow-red-600/30"
+              >
+                초기화 확정
               </button>
             </div>
           </div>

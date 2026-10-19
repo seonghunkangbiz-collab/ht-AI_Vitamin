@@ -120,6 +120,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, isCheckedIn: true, checkinCount: count || 1 });
     }
 
+    if (action === 'uncheckin') {
+      // Delete user's checkin interaction for this specific eventId
+      await supabase
+        .from('reveal_interactions')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('user_id', session.userId)
+        .eq('type', 'checkin');
+
+      // Count remaining distinct checkins
+      const { count } = await supabase
+        .from('reveal_interactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('type', 'checkin');
+
+      // Update public state checkin_count
+      await supabase
+        .from('reveal_public_state')
+        .update({
+          checkin_count: count || 0,
+          updated_at: now
+        })
+        .eq('event_id', eventId);
+
+      return NextResponse.json({ success: true, isCheckedIn: false, checkinCount: count || 0 });
+    }
+
     if (action === 'reaction') {
       const { reaction } = body; // 'heart' | 'clap' | 'party' | 'sparkle' | 'fire'
       if (!['heart', 'clap', 'party', 'sparkle', 'fire'].includes(reaction)) {
