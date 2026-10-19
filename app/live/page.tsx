@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import MobileLayout from '@/components/MobileLayout';
 import CodeLoginModal from '@/components/CodeLoginModal';
 import { User, TimeCapsule } from '@/lib/types';
 import { getCurrentUser, setCurrentUser } from '@/lib/db';
 import { useRevealDayRealtime } from '@/hooks/useRevealDayRealtime';
+import { getSupabaseClient } from '@/lib/supabase';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,7 +24,15 @@ import {
   FileText
 } from 'lucide-react';
 
-export default function LiveAttendeePage() {
+function LiveAttendeeContent() {
+  const searchParams = useSearchParams();
+  const queryEventId = searchParams.get('eventId');
+  const queryMode = searchParams.get('mode');
+
+  // Dynamic eventId based on mode or query parameter
+  const eventId = queryEventId || (queryMode === 'rehearsal' ? 'event-rehearsal' : 'event-live-20261028');
+  const isRehearsal = eventId.includes('rehearsal') || queryMode === 'rehearsal';
+
   const [currentUserState, setUserState] = useState<User | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -32,8 +42,6 @@ export default function LiveAttendeePage() {
   const [hasGuessed, setHasGuessed] = useState(false);
   const [selectedGuess, setSelectedGuess] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
-
-  const eventId = 'event-live-20261028';
 
   // Realtime hook
   const { publicState } = useRevealDayRealtime({ eventId });
@@ -101,7 +109,17 @@ export default function LiveAttendeePage() {
         body: JSON.stringify({ eventId, action: 'checkin' })
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         setIsCheckedIn(true);
+        // Instant broadcast for sub-50ms stage synchronization
+        try {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'checkin',
+            payload: { checkinCount: data.checkinCount }
+          });
+        } catch {}
         try {
           confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
         } catch {}
@@ -122,6 +140,15 @@ export default function LiveAttendeePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId, action: 'reaction', reaction })
       });
+      // Broadcast reaction for instant visual feedback on stage
+      try {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${eventId}`).send({
+          type: 'broadcast',
+          event: 'reaction',
+          payload: { reaction }
+        });
+      } catch {}
       try {
         confetti({
           particleCount: 15,
@@ -171,17 +198,21 @@ export default function LiveAttendeePage() {
         {/* Top Header Card */}
         <div className="p-5 rounded-3xl bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 text-white shadow-xl relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 uppercase tracking-widest">
-              Live Interaction
+            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isRehearsal ? 'bg-amber-400 text-slate-950 font-black' : 'bg-white/20 text-white'} uppercase tracking-widest`}>
+              {isRehearsal ? '🛠️ Rehearsal Mode' : 'Live Interaction'}
             </span>
             <div className="flex items-center gap-1.5 text-xs text-sky-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>무대 동기화 중</span>
+              <span className={`w-2 h-2 rounded-full ${isRehearsal ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
+              <span>{isRehearsal ? '리허설 무대 동기화' : '무대 동기화 중'}</span>
             </div>
           </div>
 
-          <h2 className="text-xl font-black">AI Vitamin Reveal Day</h2>
-          <p className="text-xs text-sky-100 mt-0.5">실시간 행사 상호작용 채널</p>
+          <h2 className="text-xl font-black">
+            {isRehearsal ? 'AI Vitamin [리허설]' : 'AI Vitamin Reveal Day'}
+          </h2>
+          <p className="text-xs text-sky-100 mt-0.5">
+            {isRehearsal ? '리허설 시뮬레이션 상호작용 채널입니다.' : '실시간 행사 상호작용 채널'}
+          </p>
 
           {currentUserState && (
             <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between">
@@ -383,5 +414,17 @@ export default function LiveAttendeePage() {
         }}
       />
     </MobileLayout>
+  );
+}
+
+export default function LiveAttendeePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white text-sm font-bold">
+        <span>무대 연결 중...</span>
+      </div>
+    }>
+      <LiveAttendeeContent />
+    </Suspense>
   );
 }

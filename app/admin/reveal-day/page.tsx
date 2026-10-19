@@ -6,6 +6,7 @@ import RevealDayShell from '@/components/reveal-day/RevealDayShell';
 import { useRevealDayRealtime } from '@/hooks/useRevealDayRealtime';
 import { RevealEvent, RevealPublicState, RevealSegment, MatePairReveal, RevealTimeCapsuleItem, RevealDrawItem } from '@/lib/reveal-day/types';
 import { getCurrentUser } from '@/lib/db';
+import { getSupabaseClient } from '@/lib/supabase';
 
 export default function AdminRevealDayPage() {
   const router = useRouter();
@@ -134,6 +135,14 @@ export default function AdminRevealDayPage() {
       if (res.ok) {
         await fetchAllData();
         refetchState();
+        try {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'state_change',
+            payload: { segment: targetSegment }
+          });
+        } catch {}
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(`순서 전환 오류: ${errData.error || errData.message || res.statusText}`);
@@ -162,6 +171,14 @@ export default function AdminRevealDayPage() {
           if (data.pairs) setMatePairs(data.pairs);
         }
         refetchState();
+        try {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'state_change',
+            payload: { action: type }
+          });
+        } catch {}
       }
     } catch (e: any) {
       alert(`공개 단계 진행 실패: ${e.message}`);

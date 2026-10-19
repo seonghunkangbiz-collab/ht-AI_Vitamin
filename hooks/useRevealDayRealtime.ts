@@ -45,12 +45,12 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
     }
   }, [eventId, onStateChange]);
 
-  const startPolling = useCallback(() => {
-    if (pollingTimerRef.current) return;
+  const startPolling = useCallback((interval = 1200) => {
+    if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
     setConnectionStatus('polling');
     pollingTimerRef.current = setInterval(() => {
       fetchLatestState();
-    }, 3500);
+    }, interval);
   }, [fetchLatestState]);
 
   const stopPolling = useCallback(() => {
@@ -65,7 +65,7 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
     fetchLatestState();
 
     if (!isSupabaseConfigured()) {
-      startPolling();
+      startPolling(1200);
       return () => {
         isMountedRef.current = false;
         stopPolling();
@@ -74,10 +74,32 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
 
     try {
       const supabase = getSupabaseClient();
-      const channelName = `reveal_public_state_${eventId}`;
+      const channelName = `reveal_channel_${eventId}`;
 
       const channel = supabase
         .channel(channelName)
+        // 1. Direct Broadcast messages from mobile / admin for sub-50ms latency
+        .on('broadcast', { event: 'checkin' }, (payload) => {
+          if (isMountedRef.current) {
+            if (payload?.payload?.checkinCount !== undefined) {
+              setPublicState(prev => prev ? { ...prev, checkinCount: payload.payload.checkinCount } : null);
+            }
+            fetchLatestState();
+          }
+        })
+        .on('broadcast', { event: 'reaction' }, (payload) => {
+          if (isMountedRef.current) {
+            if (payload?.payload?.reactionCounts) {
+              setPublicState(prev => prev ? { ...prev, reactionCounts: payload.payload.reactionCounts } : null);
+            }
+          }
+        })
+        .on('broadcast', { event: 'state_change' }, () => {
+          if (isMountedRef.current) {
+            fetchLatestState();
+          }
+        })
+        // 2. Database postgres_changes on reveal_public_state
         .on(
           'postgres_changes',
           {
@@ -112,20 +134,36 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             }
           }
         )
+        // 3. Database postgres_changes on reveal_interactions for instant check-in detection
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'reveal_interactions',
+            filter: `event_id=eq.${eventId}`
+          },
+          () => {
+            if (isMountedRef.current) {
+              fetchLatestState();
+            }
+          }
+        )
         .subscribe((status) => {
           if (!isMountedRef.current) return;
           if (status === 'SUBSCRIBED') {
             setConnectionStatus('connected');
-            stopPolling();
+            // Keep a light 1500ms safety poll even when connected
+            startPolling(1500);
             fetchLatestState(); // Re-sync on connect
           } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-            startPolling();
+            startPolling(1200);
           }
         });
 
       channelRef.current = channel;
     } catch {
-      startPolling();
+      startPolling(1200);
     }
 
     return () => {
