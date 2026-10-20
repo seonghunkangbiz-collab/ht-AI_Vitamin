@@ -237,11 +237,17 @@ export default function RevealDayShell({
                 const url = `/admin/reveal-day/display?mode=${publicState.mode}&eventId=${event.id}`;
                 window.open(url, '_blank', 'noopener,noreferrer');
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white border border-indigo-500/40 text-xs font-semibold transition-all shadow-sm shadow-indigo-950/40"
-              title="빔프로젝터용 무대 전체 화면을 새 창으로 엽니다 (빔프로젝터/서브 모니터로 드래그)"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                publicState.mode === 'rehearsal'
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-amber-950/40'
+                  : 'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white border border-indigo-500/40 shadow-indigo-950/40'
+              }`}
+              title={`현재 ${publicState.mode === 'rehearsal' ? '리허설' : '라이브'} 모드의 빔프로젝터 무대 화면을 새 창으로 엽니다`}
             >
-              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">빔프로젝터 화면 열기</span>
+              <ExternalLink className={`w-3.5 h-3.5 ${publicState.mode === 'rehearsal' ? 'text-amber-400' : 'text-indigo-400'}`} />
+              <span className="hidden sm:inline">
+                {publicState.mode === 'rehearsal' ? '리허설 빔 화면 열기' : '라이브 빔 화면 열기'}
+              </span>
             </button>
           )}
 
