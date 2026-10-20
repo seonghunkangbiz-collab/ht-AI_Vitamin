@@ -46,9 +46,10 @@ export interface CheeringToast {
 
 interface CheerOverlayProps {
   eventId: string;
+  showToasts?: boolean;
 }
 
-export default function CheerOverlay({ eventId }: CheerOverlayProps) {
+export default function CheerOverlay({ eventId, showToasts = false }: CheerOverlayProps) {
   const [particles, setParticles] = useState<FloatingCheerParticle[]>([]);
   const [toasts, setToasts] = useState<CheeringToast[]>([]);
   const isMountedRef = useRef(true);
@@ -231,44 +232,46 @@ export default function CheerOverlay({ eventId }: CheerOverlayProps) {
         ))}
       </AnimatePresence>
 
-      {/* 2. Live Cheering Messages Overlay (TOP-RIGHT Stack on Stage Canvas) */}
-      <div className="absolute top-6 right-6 flex flex-col gap-2.5 max-w-sm w-full z-50 items-end pointer-events-none">
-        <AnimatePresence>
-          {toasts.map(toast => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, x: 80, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 60, scale: 0.85 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="p-3.5 rounded-2xl bg-slate-900/95 border border-sky-400/40 shadow-2xl backdrop-blur-xl flex items-start gap-3 w-full border-l-4 border-l-sky-400"
-            >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center text-2xl shrink-0 shadow-inner">
-                {toast.emoji}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-black text-white truncate">
-                    {toast.senderName}
-                  </span>
-                  {toast.senderTeam && (
-                    <span className="text-[10px] text-sky-300 font-semibold truncate">
-                      ({toast.senderTeam})
-                    </span>
-                  )}
-                  <span className="text-[9px] text-emerald-400 font-mono ml-auto shrink-0 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    LIVE
-                  </span>
+      {/* 2. Live Cheering Messages Overlay (Optional TOP-RIGHT Stack on Stage Canvas) */}
+      {showToasts && (
+        <div className="absolute top-6 right-6 flex flex-col gap-2.5 max-w-sm w-full z-50 items-end pointer-events-none">
+          <AnimatePresence>
+            {toasts.map(toast => (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, x: 80, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 60, scale: 0.85 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="p-3.5 rounded-2xl bg-slate-900/95 border border-sky-400/40 shadow-2xl backdrop-blur-xl flex items-start gap-3 w-full border-l-4 border-l-sky-400"
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500/20 to-indigo-500/20 border border-sky-400/30 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                  {toast.emoji}
                 </div>
-                <p className="text-xs font-bold text-slate-100 leading-snug break-words">
-                  {toast.message}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs font-black text-white truncate">
+                      {toast.senderName}
+                    </span>
+                    {toast.senderTeam && (
+                      <span className="text-[10px] text-sky-300 font-semibold truncate">
+                        ({toast.senderTeam})
+                      </span>
+                    )}
+                    <span className="text-[9px] text-emerald-400 font-mono ml-auto shrink-0 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      LIVE
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-100 leading-snug break-words">
+                    {toast.message}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ interface StageCanvasProps {
   capsules?: RevealTimeCapsuleItem[];
   draws?: RevealDrawItem[];
   songUrl?: string;
+  showCheerToasts?: boolean;
 }
 
 export default function StageCanvas({
@@ -29,7 +30,8 @@ export default function StageCanvas({
   matePairs = [],
   capsules = [],
   draws = [],
-  songUrl
+  songUrl,
+  showCheerToasts = false
 }: StageCanvasProps) {
   const { currentSegment, isBlackout, isHolding, mode, checkinCount, reactionCounts } = publicState;
 
@@ -120,8 +122,8 @@ export default function StageCanvas({
         </motion.div>
       </AnimatePresence>
 
-      {/* Real-time Cheering Overlay (Floating Emojis & Message Toasts in Top-Right) */}
-      <CheerOverlay eventId={publicState.eventId} />
+      {/* Real-time Cheering Overlay (Floating Emojis & Optional Message Toasts) */}
+      <CheerOverlay eventId={publicState.eventId} showToasts={showCheerToasts} />
     </div>
   );
 }
