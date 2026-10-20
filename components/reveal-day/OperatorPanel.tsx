@@ -31,6 +31,8 @@ interface OperatorPanelProps {
   onResetCheckins?: () => void;
   onFactoryReset?: () => void;
   onOpenPreflight?: () => void;
+  onNavigateCapsule?: (newIndex: number) => void;
+  capsulesCount?: number;
   isProcessing?: boolean;
 }
 
@@ -44,6 +46,8 @@ export default function OperatorPanel({
   onResetCheckins,
   onFactoryReset,
   onOpenPreflight,
+  onNavigateCapsule,
+  capsulesCount = 24,
   isProcessing
 }: OperatorPanelProps) {
   const { currentSegment, isBlackout, isHolding } = publicState;
@@ -208,6 +212,52 @@ export default function OperatorPanel({
             </div>
             <p className="text-[10px] text-slate-500">
               * 일괄 공개 시 현재 배치의 모든 메이트 관계가 즉시 공개되며 화면에 유지됩니다.
+            </p>
+          </div>
+        )}
+
+        {currentSegment === 'time_capsule' && (
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-indigo-500/30 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-indigo-300">AI Time Capsule Spotlight 넘기기</span>
+              <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                {(publicState.currentCapsuleIndex || 0) + 1} / {capsulesCount || 24}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const max = capsulesCount || 24;
+                  const cur = publicState.currentCapsuleIndex || 0;
+                  const prev = cur === 0 ? max - 1 : cur - 1;
+                  if (onNavigateCapsule) onNavigateCapsule(prev);
+                }}
+                disabled={isProcessing}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center justify-center gap-1 border border-slate-700"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>이전 캡슐</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const max = capsulesCount || 24;
+                  const cur = publicState.currentCapsuleIndex || 0;
+                  const next = cur === max - 1 ? 0 : cur + 1;
+                  if (onNavigateCapsule) onNavigateCapsule(next);
+                }}
+                disabled={isProcessing}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center justify-center gap-1 shadow shadow-sky-600/20"
+              >
+                <span>다음 캡슐</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              * 다음 캡슐을 클릭하면 빔프로젝터 송출 화면과 실시간으로 연동되어 동일한 타임캡슐이 즉시 표시됩니다.
             </p>
           </div>
         )}

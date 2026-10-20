@@ -26,6 +26,7 @@ export default function AdminRevealDayPage() {
   // Realtime hook
   const {
     publicState,
+    setPublicState,
     snapshotStats,
     connectionStatus,
     lastSyncTime,
@@ -206,6 +207,23 @@ export default function AdminRevealDayPage() {
     }
   };
 
+  // 5. Time Capsule Spotlight Navigation Handler (Syncs Spotlight across Operator & Projector screen)
+  const handleNavigateCapsule = async (newIndex: number) => {
+    setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: newIndex } : null);
+    sendBroadcast('capsule_index', { index: newIndex });
+    try {
+      await fetch('/api/admin/reveal-day/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          action: 'set_capsule_index',
+          index: newIndex
+        })
+      });
+    } catch {}
+  };
+
   // 6. Emergency Blackout & Holding Toggles
   const handleToggleEmergency = async (type: 'blackout' | 'holding', active: boolean) => {
     try {
@@ -327,6 +345,7 @@ export default function AdminRevealDayPage() {
         onResetCheckins={handleResetCheckins}
         onFactoryReset={handleFactoryReset}
         onRefreshData={fetchAllData}
+        onNavigateCapsule={handleNavigateCapsule}
         isDisplayOnly={false}
       />
     </div>

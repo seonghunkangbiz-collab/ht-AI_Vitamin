@@ -63,6 +63,23 @@ export async function GET(request: Request) {
       };
     }
 
+    // 3. Fetch latest capsule index from reveal_interactions
+    let currentCapsuleIndex = 0;
+    try {
+      const { data: latestCapsule } = await supabase
+        .from('reveal_interactions')
+        .select('payload')
+        .eq('event_id', eventId)
+        .eq('type', 'capsule_index')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestCapsule?.payload?.index !== undefined) {
+        currentCapsuleIndex = Number(latestCapsule.payload.index) || 0;
+      }
+    } catch {}
+
     return NextResponse.json(
       {
         publicState: {
@@ -72,6 +89,7 @@ export async function GET(request: Request) {
           currentSegment: pubState.current_segment,
           currentRevealIndex: pubState.current_reveal_index,
           currentBatchIndex: pubState.current_batch_index,
+          currentCapsuleIndex,
           revealedPairsCount: pubState.revealed_pairs_count,
           dataVersion: pubState.data_version,
           sequence: pubState.sequence,

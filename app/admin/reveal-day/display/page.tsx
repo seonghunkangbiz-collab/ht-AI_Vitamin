@@ -23,7 +23,7 @@ function DisplayContent() {
   const [isChatOpen, setIsChatOpen] = useState(true);
 
   // Subscribe to safe public state
-  const { publicState, snapshotStats } = useRevealDayRealtime({ eventId });
+  const { publicState, setPublicState, snapshotStats, sendBroadcast } = useRevealDayRealtime({ eventId });
 
   // Fetch only public revealed pairs and valid draws
   useEffect(() => {
@@ -66,6 +66,20 @@ function DisplayContent() {
         document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
       }
     }
+  };
+
+  const handleNavigateCapsule = (newIndex: number) => {
+    setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: newIndex } : null);
+    sendBroadcast('capsule_index', { index: newIndex });
+    fetch('/api/admin/reveal-day/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId,
+        action: 'set_capsule_index',
+        index: newIndex
+      })
+    }).catch(() => {});
   };
 
   // Keyboard shortcuts: 'F' for fullscreen, 'C' for live chat sidebar toggle
@@ -165,6 +179,7 @@ function DisplayContent() {
             draws={draws}
             songUrl="/audio/vitamin_song.mp3"
             showCheerToasts={false}
+            onNavigateCapsule={handleNavigateCapsule}
           />
         </div>
       </div>

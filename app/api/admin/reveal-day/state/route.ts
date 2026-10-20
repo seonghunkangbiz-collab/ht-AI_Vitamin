@@ -83,6 +83,22 @@ export async function GET(request: Request) {
       publicState = newPubState;
     }
 
+    let currentCapsuleIndex = 0;
+    try {
+      const { data: latestCapsule } = await supabase
+        .from('reveal_interactions')
+        .select('payload')
+        .eq('event_id', eventId)
+        .eq('type', 'capsule_index')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestCapsule?.payload?.index !== undefined) {
+        currentCapsuleIndex = Number(latestCapsule.payload.index) || 0;
+      }
+    } catch {}
+
     return NextResponse.json({
       event: {
         id: event.id,
@@ -95,6 +111,7 @@ export async function GET(request: Request) {
         currentSegment: event.current_segment,
         currentRevealIndex: event.current_reveal_index,
         currentBatchIndex: event.current_batch_index,
+        currentCapsuleIndex,
         version: event.version,
         controllerId: event.controller_id,
         controllerName: event.controller_name,
@@ -111,6 +128,7 @@ export async function GET(request: Request) {
         currentSegment: publicState.current_segment,
         currentRevealIndex: publicState.current_reveal_index,
         currentBatchIndex: publicState.current_batch_index,
+        currentCapsuleIndex,
         revealedPairsCount: publicState.revealed_pairs_count,
         dataVersion: publicState.data_version,
         sequence: publicState.sequence,
@@ -188,6 +206,32 @@ export async function POST(request: Request) {
       await supabase.from('reveal_events').update({ status, updated_at: new Date().toISOString() }).eq('id', eventId);
       await supabase.from('reveal_public_state').update({ status, updated_at: new Date().toISOString() }).eq('event_id', eventId);
       return NextResponse.json({ success: true, status });
+    }
+
+    if (action === 'set_capsule_index') {
+      const { index } = body;
+      const targetIndex = typeof index === 'number' ? Math.max(0, index) : 0;
+      const supabase = getSupabaseServerClient();
+      const now = new Date().toISOString();
+
+      await supabase
+        .from('reveal_interactions')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('type', 'capsule_index');
+
+      await supabase
+        .from('reveal_interactions')
+        .insert({
+          id: `capsule-idx-${eventId}-${Date.now()}`,
+          event_id: eventId,
+          user_id: session.userId,
+          type: 'capsule_index',
+          payload: { index: targetIndex },
+          created_at: now
+        });
+
+      return NextResponse.json({ success: true, currentCapsuleIndex: targetIndex });
     }
 
     if (action === 'reset_checkins') {

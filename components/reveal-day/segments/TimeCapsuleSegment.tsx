@@ -7,21 +7,31 @@ import { RevealTimeCapsuleItem } from '@/lib/reveal-day/types';
 
 interface TimeCapsuleSegmentProps {
   capsules: RevealTimeCapsuleItem[];
+  currentIndex?: number;
+  onNavigate?: (newIndex: number) => void;
 }
 
-export default function TimeCapsuleSegment({ capsules }: TimeCapsuleSegmentProps) {
+export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate }: TimeCapsuleSegmentProps) {
   const approvedCapsules = capsules.filter(c => c.approvalStatus === 'approved');
   const spotlightCapsules = approvedCapsules.length > 0 ? approvedCapsules : capsules;
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const activeCapsule = spotlightCapsules[currentIndex] || null;
+  const [localIndex, setLocalIndex] = useState(0);
+  const activeIndex = typeof currentIndex === 'number' 
+    ? (spotlightCapsules.length > 0 ? currentIndex % spotlightCapsules.length : 0)
+    : localIndex;
+
+  const activeCapsule = spotlightCapsules[activeIndex] || null;
 
   const handlePrev = () => {
-    setCurrentIndex(prev => (prev === 0 ? spotlightCapsules.length - 1 : prev - 1));
+    const prevIdx = activeIndex === 0 ? spotlightCapsules.length - 1 : activeIndex - 1;
+    setLocalIndex(prevIdx);
+    if (onNavigate) onNavigate(prevIdx);
   };
 
   const handleNext = () => {
-    setCurrentIndex(prev => (prev === spotlightCapsules.length - 1 ? 0 : prev + 1));
+    const nextIdx = activeIndex === spotlightCapsules.length - 1 ? 0 : activeIndex + 1;
+    setLocalIndex(nextIdx);
+    if (onNavigate) onNavigate(nextIdx);
   };
 
   if (!activeCapsule) {
@@ -45,7 +55,7 @@ export default function TimeCapsuleSegment({ capsules }: TimeCapsuleSegmentProps
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-slate-400">
-            {currentIndex + 1} / {spotlightCapsules.length}
+            {activeIndex + 1} / {spotlightCapsules.length}
           </span>
           <div className="flex gap-1.5">
             <button

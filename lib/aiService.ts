@@ -96,17 +96,38 @@ export async function fetchAIRefinedPraise(originalText: string): Promise<string
   return VARIED_ENHANCERS[randomIndex](trimmed);
 }
 
+function getFallbackCapsule(recipientName: string) {
+  const charCodeSum = recipientName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const VARIANTS = [
+    {
+      keywords: ['책임감', '배려심', '묵묵한성실', '신뢰', '긍정에너지'],
+      analysis: `동료들은 ${recipientName}님을 복잡한 상황에서도 묵묵히 팀을 든든하게 받쳐주고 밝은 웃음으로 활력을 불어넣는 따뜻한 조력자로 기억했습니다.`,
+      letter: `지난 두 달 동안 함께한 시간 속에서 ${recipientName}님이 보여주신 진심과 성실함은 팀 전체에 큰 힘이 되었습니다. 동료들의 마음을 모아 깊은 감사와 응원을 전합니다.\n\n- AI Vitamin -`
+    },
+    {
+      keywords: ['문제해결', '전문성', '명쾌한소통', '열정', '통찰력'],
+      analysis: `동료들은 ${recipientName}님을 어려운 문제 앞에서도 한발 앞서 명쾌한 해답을 찾아내고 동료들과 적극적으로 소통하는 든든한 기술 기둥으로 기억했습니다.`,
+      letter: `언제나 열정적인 태도와 빈틈없는 전문성으로 프로젝트의 완성도를 높여주셔서 큰 감동을 받았습니다. ${recipientName}님과 함께할 수 있어 진심으로 자랑스러웠습니다.\n\n- AI Vitamin -`
+    },
+    {
+      keywords: ['분위기메이커', '친화력', '공감능력', '센스', '시너지'],
+      analysis: `동료들은 ${recipientName}님을 다정한 소통과 센스 넘치는 배려로 팀의 사기를 북돋아 주며, 함께 일하는 순간을 즐겁게 만드는 최고의 비타민으로 기억했습니다.`,
+      letter: `바쁜 업무 속에서도 늘 먼저 웃으며 손을 내밀어 주신 ${recipientName}님의 따뜻한 온기 덕분에 팀이 하나로 뭉칠 수 있었습니다. 보내주신 에너지에 감사드립니다.\n\n- AI Vitamin -`
+    },
+    {
+      keywords: ['추진력', '솔선수범', '도전정신', '끈기', '협업'],
+      analysis: `동료들은 ${recipientName}님을 목표를 향해 주저 없이 앞장서서 장애물을 돌파하고, 끝까지 책임을 다해 신뢰를 쌓아가는 든든한 실행가로 기억했습니다.`,
+      letter: `도전적인 과제 속에서도 흔들림 없는 뚝심과 성실함으로 멋진 시너지를 이끌어 주신 ${recipientName}님의 노고에 깊은 존경과 감사의 마음을 보냅니다.\n\n- AI Vitamin -`
+    }
+  ];
+  return VARIANTS[charCodeSum % VARIANTS.length];
+}
+
 export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; analysis: string; keywords: string[] }> {
-  const defaultKeywords = ['협업', '배려', '책임감', '전문성', '긍정에너지'];
-  const defaultAnalysis = `동료들은 ${recipientName}님을 항상 먼저 도와주는 동료, 팀 분위기를 밝고 화기애애하게 만드는 든든한 조력자로 기억하고 있습니다.`;
-  const defaultLetter = `지난 두 달 동안 동료들이 보내준 응원과 칭찬을 분석했습니다. 많은 사람들이 ${recipientName}님의 따뜻한 배려와 강한 책임감을 이야기했습니다. 앞으로도 우리 본부에 좋은 에너지를 전해주세요.\n\n- AI Vitamin -`;
+  const fallback = getFallbackCapsule(recipientName);
 
   if (praises.length === 0) {
-    return {
-      keywords: defaultKeywords,
-      analysis: defaultAnalysis,
-      letter: defaultLetter
-    };
+    return fallback;
   }
 
   if (openai) {
@@ -142,9 +163,9 @@ JSON 포맷으로만 반환해줘:
       if (content) {
         const parsed = JSON.parse(content);
         return {
-          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : defaultKeywords,
-          analysis: parsed.analysis || defaultAnalysis,
-          letter: parsed.letter || defaultLetter
+          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : fallback.keywords,
+          analysis: parsed.analysis || fallback.analysis,
+          letter: parsed.letter || fallback.letter
         };
       }
     } catch (e) {
@@ -153,9 +174,5 @@ JSON 포맷으로만 반환해줘:
   }
 
   // High quality fallback letter generation
-  return {
-    keywords: defaultKeywords,
-    analysis: defaultAnalysis,
-    letter: defaultLetter
-  };
+  return fallback;
 }

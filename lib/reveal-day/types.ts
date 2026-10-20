@@ -24,6 +24,7 @@ export interface RevealEvent {
   currentSegment: RevealSegment;
   currentRevealIndex: number;
   currentBatchIndex: number;
+  currentCapsuleIndex?: number;
   version: number;
   controllerId?: string | null;
   controllerName?: string | null;
@@ -49,6 +50,7 @@ export interface RevealPublicState {
   currentSegment: RevealSegment;
   currentRevealIndex: number;
   currentBatchIndex: number;
+  currentCapsuleIndex?: number;
   revealedPairsCount: number;
   dataVersion: number;
   sequence: number;

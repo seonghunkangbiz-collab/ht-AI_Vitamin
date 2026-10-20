@@ -39,6 +39,7 @@ interface RevealDayShellProps {
   onResetCheckins?: () => void;
   onFactoryReset?: () => void;
   onRefreshData?: () => void;
+  onNavigateCapsule?: (newIndex: number) => void;
   isDisplayOnly?: boolean;
 }
 
@@ -58,6 +59,7 @@ export default function RevealDayShell({
   onResetCheckins,
   onFactoryReset,
   onRefreshData,
+  onNavigateCapsule,
   isDisplayOnly = false
 }: RevealDayShellProps) {
   // Screen width & Fullscreen state
@@ -299,6 +301,7 @@ export default function RevealDayShell({
               capsules={capsules}
               draws={draws}
               songUrl="/audio/vitamin_song.mp3"
+              onNavigateCapsule={onNavigateCapsule}
             />
           </div>
         </section>
@@ -316,6 +319,8 @@ export default function RevealDayShell({
               onResetCheckins={onResetCheckins}
               onFactoryReset={onFactoryReset}
               onOpenPreflight={() => setShowPreflight(true)}
+              onNavigateCapsule={onNavigateCapsule}
+              capsulesCount={capsules.length}
             />
           </aside>
         )}

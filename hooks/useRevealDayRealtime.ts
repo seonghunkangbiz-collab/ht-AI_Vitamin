@@ -119,6 +119,13 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             }
           }
         })
+        .on('broadcast', { event: 'capsule_index' }, (payload) => {
+          if (isMountedRef.current) {
+            if (typeof payload?.payload?.index === 'number') {
+              setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: payload.payload.index } : null);
+            }
+          }
+        })
         .on('broadcast', { event: 'state_change' }, (payload) => {
           if (isMountedRef.current) {
             // Instant optimistic update from broadcast payload (0ms latency on display screen)
@@ -137,6 +144,12 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
                 ...prev,
                 currentRevealIndex: payload.payload.currentRevealIndex,
                 revealedPairsCount: payload.payload.revealedPairsCount ?? prev.revealedPairsCount
+              } : null);
+            }
+            if (typeof payload?.payload?.currentCapsuleIndex === 'number') {
+              setPublicState(prev => prev ? {
+                ...prev,
+                currentCapsuleIndex: payload.payload.currentCapsuleIndex
               } : null);
             }
             fetchLatestState();
@@ -223,6 +236,7 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
 
   return {
     publicState,
+    setPublicState,
     snapshotStats,
     connectionStatus,
     lastSyncTime,

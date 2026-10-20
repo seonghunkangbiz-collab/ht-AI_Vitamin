@@ -22,6 +22,7 @@ interface StageCanvasProps {
   draws?: RevealDrawItem[];
   songUrl?: string;
   showCheerToasts?: boolean;
+  onNavigateCapsule?: (newIndex: number) => void;
 }
 
 export default function StageCanvas({
@@ -31,7 +32,8 @@ export default function StageCanvas({
   capsules = [],
   draws = [],
   songUrl,
-  showCheerToasts = false
+  showCheerToasts = false,
+  onNavigateCapsule
 }: StageCanvasProps) {
   const { currentSegment, isBlackout, isHolding, mode, checkinCount, reactionCounts } = publicState;
 
@@ -98,7 +100,11 @@ export default function StageCanvas({
           )}
 
           {currentSegment === 'time_capsule' && (
-            <TimeCapsuleSegment capsules={capsules} />
+            <TimeCapsuleSegment
+              capsules={capsules}
+              currentIndex={publicState.currentCapsuleIndex ?? 0}
+              onNavigate={onNavigateCapsule}
+            />
           )}
 
           {currentSegment === 'lucky_draw' && (
