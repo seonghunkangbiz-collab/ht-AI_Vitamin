@@ -4,9 +4,9 @@ import { INITIAL_USERS } from '../seedData';
 // 24 actual active members from seedData (excluding admin)
 const REAL_ATTENDEES = INITIAL_USERS.filter(u => u.role !== 'admin');
 
-export const REHEARSAL_USERS = REAL_ATTENDEES.map((user, i) => {
+export const REHEARSAL_USERS = REAL_ATTENDEES.map((user) => {
   return {
-    id: `rehearsal-user-${i + 1}`,
+    id: user.id,
     name: user.name,
     team: user.team,
     avatar: user.avatar,

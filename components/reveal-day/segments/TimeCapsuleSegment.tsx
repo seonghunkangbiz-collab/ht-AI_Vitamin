@@ -9,9 +9,10 @@ interface TimeCapsuleSegmentProps {
   capsules: RevealTimeCapsuleItem[];
   currentIndex?: number;
   onNavigate?: (newIndex: number) => void;
+  hideControls?: boolean;
 }
 
-export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate }: TimeCapsuleSegmentProps) {
+export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate, hideControls }: TimeCapsuleSegmentProps) {
   const approvedCapsules = capsules.filter(c => c.approvalStatus === 'approved');
   const spotlightCapsules = approvedCapsules.length > 0 ? approvedCapsules : capsules;
 
@@ -57,20 +58,24 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate 
           <span className="text-xs text-slate-400">
             {activeIndex + 1} / {spotlightCapsules.length}
           </span>
-          <div className="flex gap-1.5">
-            <button
-              onClick={handlePrev}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleNext}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          {!hideControls && (
+            <div className="flex gap-1.5">
+              <button
+                onClick={handlePrev}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+                title="이전 타임캡슐"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleNext}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+                title="다음 타임캡슐"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

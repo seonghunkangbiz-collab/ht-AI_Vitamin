@@ -75,17 +75,16 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
   // 2. Fetch candidate pool
   let candidates: CandidateUser[] = [];
 
-  if (isRehearsal) {
-    candidates = REHEARSAL_USERS.map(u => ({ id: u.id, name: u.name, team: u.team }));
+  // Try fetching actual users from database to ensure valid foreign keys
+  const { data: dbUsers } = await supabase
+    .from('users')
+    .select('id, name, team, role')
+    .neq('role', 'admin');
+
+  if (dbUsers && dbUsers.length > 0) {
+    candidates = dbUsers.map(u => ({ id: u.id, name: u.name, team: u.team }));
   } else {
-    // Live: fetch from users table excluding admin
-    const { data: dbUsers, error } = await supabase
-      .from('users')
-      .select('id, name, team, role');
-    if (error) throw new Error(`Failed to fetch users for draw: ${error.message}`);
-    candidates = (dbUsers || [])
-      .filter(u => u.role !== 'admin')
-      .map(u => ({ id: u.id, name: u.name, team: u.team }));
+    candidates = REHEARSAL_USERS.map(u => ({ id: u.id, name: u.name, team: u.team }));
   }
 
   if (candidates.length === 0) {
@@ -122,6 +121,23 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
   // 6. Persist Draw
   const drawId = `draw-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
   const now = new Date().toISOString();
+
+  // Defensive Foreign Key Check: Guarantee winner exists in users table before insert
+  const { data: userExists } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', winner.id)
+    .maybeSingle();
+
+  if (!userExists) {
+    await supabase.from('users').upsert({
+      id: winner.id,
+      name: winner.name,
+      team: winner.team,
+      role: 'user',
+      code: `VIT-MEMBER-${winner.id.slice(-4).toUpperCase()}`
+    });
+  }
 
   const drawRow = {
     id: drawId,

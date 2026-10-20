@@ -121,35 +121,39 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
         })
         .on('broadcast', { event: 'capsule_index' }, (payload) => {
           if (isMountedRef.current) {
-            if (typeof payload?.payload?.index === 'number') {
-              setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: payload.payload.index } : null);
+            const raw = payload?.payload || payload || {};
+            const idx = typeof raw.index === 'number' ? raw.index : (typeof raw.currentCapsuleIndex === 'number' ? raw.currentCapsuleIndex : null);
+            if (idx !== null) {
+              setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: idx } : null);
             }
           }
         })
         .on('broadcast', { event: 'state_change' }, (payload) => {
           if (isMountedRef.current) {
+            const data = payload?.payload || payload || {};
             // Instant optimistic update from broadcast payload (0ms latency on display screen)
-            if (payload?.payload?.segment) {
-              setPublicState(prev => prev ? { ...prev, currentSegment: payload.payload.segment } : null);
+            if (data.segment) {
+              setPublicState(prev => prev ? { ...prev, currentSegment: data.segment } : null);
             }
-            if (payload?.payload?.isBlackout !== undefined || payload?.payload?.isHolding !== undefined) {
+            if (data.isBlackout !== undefined || data.isHolding !== undefined) {
               setPublicState(prev => prev ? {
                 ...prev,
-                isBlackout: payload.payload.isBlackout ?? prev.isBlackout,
-                isHolding: payload.payload.isHolding ?? prev.isHolding
+                isBlackout: data.isBlackout ?? prev.isBlackout,
+                isHolding: data.isHolding ?? prev.isHolding
               } : null);
             }
-            if (payload?.payload?.currentRevealIndex !== undefined) {
+            if (data.currentRevealIndex !== undefined) {
               setPublicState(prev => prev ? {
                 ...prev,
-                currentRevealIndex: payload.payload.currentRevealIndex,
-                revealedPairsCount: payload.payload.revealedPairsCount ?? prev.revealedPairsCount
+                currentRevealIndex: data.currentRevealIndex,
+                revealedPairsCount: data.revealedPairsCount ?? prev.revealedPairsCount
               } : null);
             }
-            if (typeof payload?.payload?.currentCapsuleIndex === 'number') {
+            const capIdx = typeof data.currentCapsuleIndex === 'number' ? data.currentCapsuleIndex : (typeof data.capsuleIndex === 'number' ? data.capsuleIndex : null);
+            if (capIdx !== null) {
               setPublicState(prev => prev ? {
                 ...prev,
-                currentCapsuleIndex: payload.payload.currentCapsuleIndex
+                currentCapsuleIndex: capIdx
               } : null);
             }
             fetchLatestState();

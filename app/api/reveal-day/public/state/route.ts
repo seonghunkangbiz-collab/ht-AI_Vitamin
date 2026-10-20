@@ -63,20 +63,17 @@ export async function GET(request: Request) {
       };
     }
 
-    // 3. Fetch latest capsule index from reveal_interactions
+    // 3. Fetch latest capsule index from app_state
     let currentCapsuleIndex = 0;
     try {
-      const { data: latestCapsule } = await supabase
-        .from('reveal_interactions')
-        .select('payload')
-        .eq('event_id', eventId)
-        .eq('type', 'capsule_index')
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const { data: capsuleState } = await supabase
+        .from('app_state')
+        .select('value')
+        .eq('key', `capsule_index_${eventId}`)
         .maybeSingle();
 
-      if (latestCapsule?.payload?.index !== undefined) {
-        currentCapsuleIndex = Number(latestCapsule.payload.index) || 0;
+      if (capsuleState?.value?.index !== undefined) {
+        currentCapsuleIndex = Number(capsuleState.value.index) || 0;
       }
     } catch {}
 

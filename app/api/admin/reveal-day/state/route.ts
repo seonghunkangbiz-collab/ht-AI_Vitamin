@@ -85,17 +85,14 @@ export async function GET(request: Request) {
 
     let currentCapsuleIndex = 0;
     try {
-      const { data: latestCapsule } = await supabase
-        .from('reveal_interactions')
-        .select('payload')
-        .eq('event_id', eventId)
-        .eq('type', 'capsule_index')
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const { data: capsuleState } = await supabase
+        .from('app_state')
+        .select('value')
+        .eq('key', `capsule_index_${eventId}`)
         .maybeSingle();
 
-      if (latestCapsule?.payload?.index !== undefined) {
-        currentCapsuleIndex = Number(latestCapsule.payload.index) || 0;
+      if (capsuleState?.value?.index !== undefined) {
+        currentCapsuleIndex = Number(capsuleState.value.index) || 0;
       }
     } catch {}
 
@@ -214,22 +211,29 @@ export async function POST(request: Request) {
       const supabase = getSupabaseServerClient();
       const now = new Date().toISOString();
 
+      // Upsert into app_state (safe, robust, unconstrained JSONB store)
       await supabase
-        .from('reveal_interactions')
-        .delete()
-        .eq('event_id', eventId)
-        .eq('type', 'capsule_index');
-
-      await supabase
-        .from('reveal_interactions')
-        .insert({
-          id: `capsule-idx-${eventId}-${Date.now()}`,
-          event_id: eventId,
-          user_id: session.userId,
-          type: 'capsule_index',
-          payload: { index: targetIndex },
-          created_at: now
+        .from('app_state')
+        .upsert({
+          key: `capsule_index_${eventId}`,
+          value: { index: targetIndex, updatedAt: now }
         });
+
+      // Update sequence in reveal_public_state to broadcast instant change
+      const { data: currPub } = await supabase
+        .from('reveal_public_state')
+        .select('sequence')
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+      const nextSequence = (currPub?.sequence || 1) + 1;
+      await supabase
+        .from('reveal_public_state')
+        .update({
+          sequence: nextSequence,
+          updated_at: now
+        })
+        .eq('event_id', eventId);
 
       return NextResponse.json({ success: true, currentCapsuleIndex: targetIndex });
     }
@@ -340,7 +344,15 @@ export async function POST(request: Request) {
         })
         .eq('event_id', eventId);
 
-      // 5. Audit log
+      // 5. Reset capsule index in app_state
+      await supabase
+        .from('app_state')
+        .upsert({
+          key: `capsule_index_${eventId}`,
+          value: { index: 0, updatedAt: now }
+        });
+
+      // 6. Audit log
       await supabase.from('reveal_audit_logs').insert({
         id: `audit-reset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         event_id: eventId,

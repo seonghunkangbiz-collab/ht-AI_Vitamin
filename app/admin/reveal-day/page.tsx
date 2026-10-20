@@ -210,7 +210,8 @@ export default function AdminRevealDayPage() {
   // 5. Time Capsule Spotlight Navigation Handler (Syncs Spotlight across Operator & Projector screen)
   const handleNavigateCapsule = async (newIndex: number) => {
     setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: newIndex } : null);
-    sendBroadcast('capsule_index', { index: newIndex });
+    sendBroadcast('capsule_index', { index: newIndex, currentCapsuleIndex: newIndex });
+    sendBroadcast('state_change', { currentCapsuleIndex: newIndex });
     try {
       await fetch('/api/admin/reveal-day/state', {
         method: 'POST',

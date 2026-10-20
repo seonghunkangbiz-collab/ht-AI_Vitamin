@@ -180,6 +180,7 @@ function DisplayContent() {
             songUrl="/audio/vitamin_song.mp3"
             showCheerToasts={false}
             onNavigateCapsule={handleNavigateCapsule}
+            hideControls={true}
           />
         </div>
       </div>

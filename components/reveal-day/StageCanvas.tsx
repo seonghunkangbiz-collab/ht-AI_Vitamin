@@ -23,6 +23,7 @@ interface StageCanvasProps {
   songUrl?: string;
   showCheerToasts?: boolean;
   onNavigateCapsule?: (newIndex: number) => void;
+  hideControls?: boolean;
 }
 
 export default function StageCanvas({
@@ -33,7 +34,8 @@ export default function StageCanvas({
   draws = [],
   songUrl,
   showCheerToasts = false,
-  onNavigateCapsule
+  onNavigateCapsule,
+  hideControls = false
 }: StageCanvasProps) {
   const { currentSegment, isBlackout, isHolding, mode, checkinCount, reactionCounts } = publicState;
 
@@ -104,6 +106,7 @@ export default function StageCanvas({
               capsules={capsules}
               currentIndex={publicState.currentCapsuleIndex ?? 0}
               onNavigate={onNavigateCapsule}
+              hideControls={hideControls}
             />
           )}
 
