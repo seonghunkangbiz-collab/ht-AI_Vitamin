@@ -27,22 +27,23 @@ function DisplayContent() {
   useEffect(() => {
     const fetchDisplayAssets = async () => {
       try {
+        const t = Date.now();
         // Fetch revealed pairs only
-        const matesRes = await fetch(`/api/reveal-day/public/mates?eventId=${eventId}`);
+        const matesRes = await fetch(`/api/reveal-day/public/mates?eventId=${eventId}&_t=${t}`);
         if (matesRes.ok) {
           const data = await matesRes.json();
           if (data.revealedPairs) setMatePairs(data.revealedPairs);
         }
 
         // Fetch valid draws
-        const drawsRes = await fetch(`/api/admin/reveal-day/draw?eventId=${eventId}`);
+        const drawsRes = await fetch(`/api/admin/reveal-day/draw?eventId=${eventId}&_t=${t}`);
         if (drawsRes.ok) {
           const data = await drawsRes.json();
           if (data.draws) setDraws(data.draws.filter((d: any) => !d.isVoided));
         }
 
         // Fetch approved capsules
-        const capsRes = await fetch(`/api/admin/reveal-day/capsules?eventId=${eventId}`);
+        const capsRes = await fetch(`/api/admin/reveal-day/capsules?eventId=${eventId}&_t=${t}`);
         if (capsRes.ok) {
           const data = await capsRes.json();
           if (data.capsules) setCapsules(data.capsules.filter((c: any) => c.approvalStatus === 'approved'));
@@ -51,9 +52,9 @@ function DisplayContent() {
     };
 
     fetchDisplayAssets();
-    const interval = setInterval(fetchDisplayAssets, 4000);
+    const interval = setInterval(fetchDisplayAssets, 3000);
     return () => clearInterval(interval);
-  }, [eventId]);
+  }, [eventId, publicState?.currentSegment, publicState?.currentRevealIndex, publicState?.sequence]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

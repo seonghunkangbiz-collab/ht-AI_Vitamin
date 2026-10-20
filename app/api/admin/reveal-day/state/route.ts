@@ -231,6 +231,88 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, checkinCount: 0 });
     }
 
+    if (action === 'factory_reset') {
+      const supabase = getSupabaseServerClient();
+      const now = new Date().toISOString();
+
+      // 1. Delete all interactions for this eventId (checkins, reactions, guesses)
+      await supabase
+        .from('reveal_interactions')
+        .delete()
+        .eq('event_id', eventId);
+
+      // 2. Delete all lucky draw results for this eventId
+      await supabase
+        .from('reveal_draws')
+        .delete()
+        .eq('event_id', eventId);
+
+      // 3. Reset reveal_events
+      const { data: currEv } = await supabase
+        .from('reveal_events')
+        .select('version')
+        .eq('id', eventId)
+        .single();
+
+      const nextVersion = (currEv?.version || 1) + 1;
+
+      await supabase
+        .from('reveal_events')
+        .update({
+          status: 'ready',
+          current_segment: 'opening',
+          current_reveal_index: 0,
+          current_batch_index: 0,
+          is_blackout: false,
+          is_holding: false,
+          version: nextVersion,
+          updated_at: now
+        })
+        .eq('id', eventId);
+
+      // 4. Reset reveal_public_state
+      const { data: currPub } = await supabase
+        .from('reveal_public_state')
+        .select('sequence')
+        .eq('event_id', eventId)
+        .single();
+
+      const nextSequence = (currPub?.sequence || 1) + 1;
+
+      await supabase
+        .from('reveal_public_state')
+        .update({
+          status: 'ready',
+          current_segment: 'opening',
+          current_reveal_index: 0,
+          current_batch_index: 0,
+          revealed_pairs_count: 0,
+          is_blackout: false,
+          is_holding: false,
+          checkin_count: 0,
+          reaction_counts: { heart: 0, clap: 0, party: 0, sparkle: 0, fire: 0 },
+          sequence: nextSequence,
+          updated_at: now
+        })
+        .eq('event_id', eventId);
+
+      // 5. Audit log
+      await supabase.from('reveal_audit_logs').insert({
+        id: `audit-reset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        event_id: eventId,
+        actor_id: session.userId,
+        actor_name: session.name,
+        action: 'FACTORY_RESET',
+        payload: { eventId, resetBy: session.name, resetAt: now },
+        created_at: now
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        message: '행사 전체 상태가 행사 시작 전 최초 상태로 완벽히 초기화되었습니다.' 
+      });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

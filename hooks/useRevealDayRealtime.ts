@@ -24,7 +24,7 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
 
   const fetchLatestState = useCallback(async () => {
     try {
-      const res = await fetch(`/api/reveal-day/public/state?eventId=${encodeURIComponent(eventId)}`, {
+      const res = await fetch(`/api/reveal-day/public/state?eventId=${encodeURIComponent(eventId)}&_t=${Date.now()}`, {
         cache: 'no-store'
       });
       if (res.ok) {
@@ -45,7 +45,7 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
     }
   }, [eventId, onStateChange]);
 
-  const startPolling = useCallback((interval = 1200) => {
+  const startPolling = useCallback((interval = 1000) => {
     if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
     setConnectionStatus('polling');
     pollingTimerRef.current = setInterval(() => {
@@ -60,12 +60,31 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
     }
   }, []);
 
+  const sendBroadcast = useCallback((event: string, payload: any) => {
+    try {
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event,
+          payload
+        });
+      } else {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${eventId}`).send({
+          type: 'broadcast',
+          event,
+          payload
+        });
+      }
+    } catch {}
+  }, [eventId]);
+
   useEffect(() => {
     isMountedRef.current = true;
     fetchLatestState();
 
     if (!isSupabaseConfigured()) {
-      startPolling(1200);
+      startPolling(1000);
       return () => {
         isMountedRef.current = false;
         stopPolling();
@@ -100,8 +119,26 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             }
           }
         })
-        .on('broadcast', { event: 'state_change' }, () => {
+        .on('broadcast', { event: 'state_change' }, (payload) => {
           if (isMountedRef.current) {
+            // Instant optimistic update from broadcast payload (0ms latency on display screen)
+            if (payload?.payload?.segment) {
+              setPublicState(prev => prev ? { ...prev, currentSegment: payload.payload.segment } : null);
+            }
+            if (payload?.payload?.isBlackout !== undefined || payload?.payload?.isHolding !== undefined) {
+              setPublicState(prev => prev ? {
+                ...prev,
+                isBlackout: payload.payload.isBlackout ?? prev.isBlackout,
+                isHolding: payload.payload.isHolding ?? prev.isHolding
+              } : null);
+            }
+            if (payload?.payload?.currentRevealIndex !== undefined) {
+              setPublicState(prev => prev ? {
+                ...prev,
+                currentRevealIndex: payload.payload.currentRevealIndex,
+                revealedPairsCount: payload.payload.revealedPairsCount ?? prev.revealedPairsCount
+              } : null);
+            }
             fetchLatestState();
           }
         })
@@ -159,17 +196,17 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
           if (!isMountedRef.current) return;
           if (status === 'SUBSCRIBED') {
             setConnectionStatus('connected');
-            // Keep a light 1500ms safety poll even when connected
-            startPolling(1500);
+            // Keep a light 1000ms safety poll even when connected
+            startPolling(1000);
             fetchLatestState(); // Re-sync on connect
           } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-            startPolling(1200);
+            startPolling(1000);
           }
         });
 
       channelRef.current = channel;
     } catch {
-      startPolling(1200);
+      startPolling(1000);
     }
 
     return () => {
@@ -189,6 +226,7 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
     snapshotStats,
     connectionStatus,
     lastSyncTime,
-    refetch: fetchLatestState
+    refetch: fetchLatestState,
+    sendBroadcast
   };
 }

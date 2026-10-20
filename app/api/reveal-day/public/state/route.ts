@@ -63,27 +63,42 @@ export async function GET(request: Request) {
       };
     }
 
-    return NextResponse.json({
-      publicState: {
-        eventId: pubState.event_id,
-        mode: pubState.mode,
-        status: pubState.status,
-        currentSegment: pubState.current_segment,
-        currentRevealIndex: pubState.current_reveal_index,
-        currentBatchIndex: pubState.current_batch_index,
-        revealedPairsCount: pubState.revealed_pairs_count,
-        dataVersion: pubState.data_version,
-        sequence: pubState.sequence,
-        isBlackout: pubState.is_blackout,
-        isHolding: pubState.is_holding,
-        reactionCounts: pubState.reaction_counts,
-        checkinCount: pubState.checkin_count,
-        lastDataSyncAt: pubState.last_data_sync_at,
-        updatedAt: pubState.updated_at
+    return NextResponse.json(
+      {
+        publicState: {
+          eventId: pubState.event_id,
+          mode: pubState.mode,
+          status: pubState.status,
+          currentSegment: pubState.current_segment,
+          currentRevealIndex: pubState.current_reveal_index,
+          currentBatchIndex: pubState.current_batch_index,
+          revealedPairsCount: pubState.revealed_pairs_count,
+          dataVersion: pubState.data_version,
+          sequence: pubState.sequence,
+          isBlackout: pubState.is_blackout,
+          isHolding: pubState.is_holding,
+          reactionCounts: pubState.reaction_counts,
+          checkinCount: pubState.checkin_count,
+          lastDataSyncAt: pubState.last_data_sync_at,
+          updatedAt: pubState.updated_at
+        },
+        snapshotStats
       },
-      snapshotStats
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Server error' },
+      {
+        status: 500,
+        headers: { 'Cache-Control': 'no-store' }
+      }
+    );
   }
 }

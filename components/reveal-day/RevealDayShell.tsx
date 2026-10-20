@@ -37,6 +37,7 @@ interface RevealDayShellProps {
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
   onResetCheckins?: () => void;
+  onFactoryReset?: () => void;
   onRefreshData?: () => void;
   isDisplayOnly?: boolean;
 }
@@ -55,6 +56,7 @@ export default function RevealDayShell({
   onExecuteDraw,
   onToggleEmergency,
   onResetCheckins,
+  onFactoryReset,
   onRefreshData,
   isDisplayOnly = false
 }: RevealDayShellProps) {
@@ -312,6 +314,7 @@ export default function RevealDayShell({
               onExecuteDraw={onExecuteDraw}
               onToggleEmergency={onToggleEmergency}
               onResetCheckins={onResetCheckins}
+              onFactoryReset={onFactoryReset}
               onOpenPreflight={() => setShowPreflight(true)}
             />
           </aside>

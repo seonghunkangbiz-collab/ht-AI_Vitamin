@@ -29,7 +29,8 @@ export default function AdminRevealDayPage() {
     snapshotStats,
     connectionStatus,
     lastSyncTime,
-    refetch: refetchState
+    refetch: refetchState,
+    sendBroadcast
   } = useRevealDayRealtime({ eventId });
 
   // 1. Initial Admin Auth & Data Fetching
@@ -135,14 +136,7 @@ export default function AdminRevealDayPage() {
       if (res.ok) {
         await fetchAllData();
         refetchState();
-        try {
-          const sb = getSupabaseClient();
-          sb.channel(`reveal_channel_${eventId}`).send({
-            type: 'broadcast',
-            event: 'state_change',
-            payload: { segment: targetSegment }
-          });
-        } catch {}
+        sendBroadcast('state_change', { segment: targetSegment });
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(`순서 전환 오류: ${errData.error || errData.message || res.statusText}`);
@@ -171,14 +165,7 @@ export default function AdminRevealDayPage() {
           if (data.pairs) setMatePairs(data.pairs);
         }
         refetchState();
-        try {
-          const sb = getSupabaseClient();
-          sb.channel(`reveal_channel_${eventId}`).send({
-            type: 'broadcast',
-            event: 'state_change',
-            payload: { action: type }
-          });
-        } catch {}
+        sendBroadcast('state_change', { action: type });
       }
     } catch (e: any) {
       alert(`공개 단계 진행 실패: ${e.message}`);
@@ -209,6 +196,7 @@ export default function AdminRevealDayPage() {
           if (data.draws) setDraws(data.draws);
         }
         refetchState();
+        sendBroadcast('state_change', { drawExecuted: true });
       } else {
         const err = await res.json();
         alert(`추첨 실패: ${err.error || '오류 발생'}`);
@@ -231,6 +219,7 @@ export default function AdminRevealDayPage() {
         })
       });
       refetchState();
+      sendBroadcast('state_change', { [type === 'blackout' ? 'isBlackout' : 'isHolding']: active });
     } catch {}
   };
 
@@ -248,14 +237,7 @@ export default function AdminRevealDayPage() {
 
       if (res.ok) {
         refetchState();
-        try {
-          const sb = getSupabaseClient();
-          sb.channel(`reveal_channel_${eventId}`).send({
-            type: 'broadcast',
-            event: 'checkin_reset',
-            payload: { checkinCount: 0 }
-          });
-        } catch {}
+        sendBroadcast('checkin_reset', { checkinCount: 0 });
         alert(`[${mode === 'rehearsal' ? '리허설' : '라이브'}] 체크인 세션이 초기화되었습니다. (체크인 수: 0명)`);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -263,6 +245,33 @@ export default function AdminRevealDayPage() {
       }
     } catch (e: any) {
       alert(`초기화 통신 오류: ${e.message}`);
+    }
+  };
+
+  // 8. Factory Reset Handler (행사 전체 초기화: 체크인, 추첨, 순서, 리액션 완전 리셋)
+  const handleFactoryReset = async () => {
+    try {
+      const res = await fetch('/api/admin/reveal-day/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          action: 'factory_reset'
+        })
+      });
+
+      if (res.ok) {
+        await fetchAllData();
+        refetchState();
+        sendBroadcast('state_change', { segment: 'opening', isBlackout: false, isHolding: false, currentRevealIndex: 0 });
+        sendBroadcast('checkin_reset', { checkinCount: 0 });
+        alert(`[${mode === 'rehearsal' ? '리허설' : '본행사 LIVE'}] 행사 전체 상태가 '오프닝' 최초 상태로 완벽히 초기화되었습니다.`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`전체 초기화 실패: ${err.error || '오류 발생'}`);
+      }
+    } catch (e: any) {
+      alert(`전체 초기화 통신 오류: ${e.message}`);
     }
   };
 
@@ -316,6 +325,7 @@ export default function AdminRevealDayPage() {
         onExecuteDraw={handleExecuteDraw}
         onToggleEmergency={handleToggleEmergency}
         onResetCheckins={handleResetCheckins}
+        onFactoryReset={handleFactoryReset}
         onRefreshData={fetchAllData}
         isDisplayOnly={false}
       />

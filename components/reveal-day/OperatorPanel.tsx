@@ -29,6 +29,7 @@ interface OperatorPanelProps {
   onVoidDraw?: (drawId: string, reason: string) => void;
   onToggleEmergency: (type: 'blackout' | 'holding', active: boolean) => void;
   onResetCheckins?: () => void;
+  onFactoryReset?: () => void;
   onOpenPreflight?: () => void;
   isProcessing?: boolean;
 }
@@ -41,6 +42,7 @@ export default function OperatorPanel({
   onExecuteDraw,
   onToggleEmergency,
   onResetCheckins,
+  onFactoryReset,
   onOpenPreflight,
   isProcessing
 }: OperatorPanelProps) {
@@ -349,6 +351,18 @@ export default function OperatorPanel({
             <span>대기 화면 (H)</span>
           </button>
         </div>
+
+        {/* Full Factory Reset Button */}
+        {onFactoryReset && (
+          <button
+            onClick={() => setShowConfirmModal('factory_reset')}
+            className="w-full py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/50 hover:border-red-600 shadow-sm"
+            title="테스트 후 행사 시작 전 초기 상태로 전체 리셋"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>행사 전체 초기화 (Factory Reset)</span>
+          </button>
+        )}
       </div>
 
       {/* Confirmation Modals */}
@@ -510,6 +524,49 @@ export default function OperatorPanel({
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-500 shadow-lg shadow-red-600/30"
               >
                 초기화 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal === 'factory_reset' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-red-500/40 rounded-3xl p-6 max-w-sm w-full text-white shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertTriangle className="w-6 h-6 animate-pulse" />
+              <h3 className="font-bold text-base">행사 전체 초기화 (Factory Reset)</h3>
+            </div>
+            <div className="text-xs text-slate-300 leading-relaxed space-y-2">
+              <p>
+                현재 <strong className="text-amber-400">{event.mode === 'rehearsal' ? '리허설 모드' : '본행사 LIVE 모드'}</strong>를 행사 시작 전 최초 상태로 완벽히 되돌리시겠습니까?
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                <div>• 진행 순서: <strong className="text-sky-400">Opening</strong>으로 복귀</div>
+                <div>• 참석자 체크인: <strong className="text-white">0명</strong>으로 리셋</div>
+                <div>• 럭키드로우 추첨: <strong className="text-white">당첨 기록 삭제</strong></div>
+                <div>• 메이트 공개: <strong className="text-white">모두 미공개</strong>로 리셋</div>
+                <div>• 실시간 응원/리액션: <strong className="text-white">초기화</strong></div>
+              </div>
+              <p className="text-[11px] text-amber-300">
+                * 테스트 진행 후 본 행사 시작 직전에 깨끗한 초기 상태로 세팅할 때 사용합니다.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs font-bold hover:bg-slate-700"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(null);
+                  if (onFactoryReset) onFactoryReset();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-500 shadow-lg shadow-red-600/40"
+              >
+                전체 초기화 확정
               </button>
             </div>
           </div>
