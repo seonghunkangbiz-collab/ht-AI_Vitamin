@@ -277,6 +277,8 @@ export function getRehearsalPublicState(): RevealPublicState {
     currentRevealIndex: 0,
     currentBatchIndex: 0,
     currentCapsuleIndex: 0,
+    pizzaTimerSeconds: 50 * 60,
+    isPizzaTimerPaused: false,
     revealedPairsCount: 0,
     dataVersion: 1,
     sequence: 1,

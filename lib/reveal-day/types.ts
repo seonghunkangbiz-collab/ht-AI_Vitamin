@@ -51,6 +51,8 @@ export interface RevealPublicState {
   currentRevealIndex: number;
   currentBatchIndex: number;
   currentCapsuleIndex?: number;
+  pizzaTimerSeconds?: number;
+  isPizzaTimerPaused?: boolean;
   revealedPairsCount: number;
   dataVersion: number;
   sequence: number;

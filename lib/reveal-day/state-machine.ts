@@ -59,8 +59,8 @@ export const SEGMENT_METADATA: Record<RevealSegment, { title: string; durationMi
   },
   pizza_party: {
     title: 'Pizza Party & Photo',
-    durationMinutes: 20,
-    timeRange: '17:10~17:30',
+    durationMinutes: 50,
+    timeRange: '17:10~18:00',
     description: '피자 파티, 자유 네트워킹 및 단체 기념 촬영'
   },
   ended: {

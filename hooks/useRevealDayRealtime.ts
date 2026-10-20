@@ -131,6 +131,17 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             }
           }
         })
+        .on('broadcast', { event: 'pizza_timer' }, (payload) => {
+          if (isMountedRef.current) {
+            const raw = payload?.payload || payload || {};
+            setPublicState(prev => {
+              if (!prev) return null;
+              const nextSec = typeof raw.seconds === 'number' ? raw.seconds : prev.pizzaTimerSeconds;
+              const nextPaused = typeof raw.isPaused === 'boolean' ? raw.isPaused : prev.isPizzaTimerPaused;
+              return { ...prev, pizzaTimerSeconds: nextSec, isPizzaTimerPaused: nextPaused };
+            });
+          }
+        })
         .on('broadcast', { event: 'state_change' }, (payload) => {
           if (isMountedRef.current) {
             const data = payload?.payload || payload || {};

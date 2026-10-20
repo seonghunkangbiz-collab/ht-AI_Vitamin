@@ -4,16 +4,69 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Pizza, Camera, Sparkles, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
-export default function PizzaPartySegment() {
-  const [secondsLeft, setSecondsLeft] = useState(20 * 60); // 20 minutes countdown
+interface PizzaPartySegmentProps {
+  eventId?: string;
+  initialSeconds?: number;
+  isPausedInitial?: boolean;
+}
+
+export default function PizzaPartySegment({
+  eventId = 'event-rehearsal',
+  initialSeconds = 50 * 60,
+  isPausedInitial = false
+}: PizzaPartySegmentProps) {
+  const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
+  const [isPaused, setIsPaused] = useState(isPausedInitial);
+
+  // Sync with prop updates
+  useEffect(() => {
+    if (typeof initialSeconds === 'number') {
+      setSecondsLeft(initialSeconds);
+    }
+  }, [initialSeconds]);
 
   useEffect(() => {
+    if (typeof isPausedInitial === 'boolean') {
+      setIsPaused(isPausedInitial);
+    }
+  }, [isPausedInitial]);
+
+  // Realtime Broadcast Listener for Pizza Timer Control
+  useEffect(() => {
+    try {
+      if (!isSupabaseConfigured()) return;
+      const sb = getSupabaseClient();
+      const channel = sb
+        .channel(`reveal_channel_${eventId}`)
+        .on('broadcast', { event: 'pizza_timer' }, (payload) => {
+          const data = payload?.payload || payload;
+          if (typeof data.seconds === 'number') {
+            setSecondsLeft(data.seconds);
+          }
+          if (typeof data.isPaused === 'boolean') {
+            setIsPaused(data.isPaused);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        try {
+          sb.removeChannel(channel);
+        } catch {}
+      };
+    } catch {}
+  }, [eventId]);
+
+  // Countdown loop
+  useEffect(() => {
+    if (isPaused) return;
     const timer = setInterval(() => {
       setSecondsLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isPaused]);
 
   const formatTimer = (totalSeconds: number) => {
     const m = Math.floor(totalSeconds / 60);
@@ -35,21 +88,28 @@ export default function PizzaPartySegment() {
             <Pizza className="w-6 h-6 text-amber-400" />
           </h2>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
-          <Clock className="w-3.5 h-3.5 text-amber-400" />
-          <span>자유 네트워킹 & 단체사진</span>
+        <div className="flex items-center gap-2">
+          {isPaused && (
+            <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold animate-pulse">
+              ⏸️ 타이머 일시정지 중
+            </span>
+          )}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>자유 네트워킹 & 단체사진 (50분)</span>
+          </div>
         </div>
       </div>
 
-      {/* Center 20-min Countdown & Photo Guide */}
+      {/* Center 50-min Countdown & Photo Guide */}
       <div className="my-auto grid grid-cols-12 gap-8 items-center z-10 max-w-4xl mx-auto w-full">
-        {/* Left: 20-min Countdown Timer */}
+        {/* Left: 50-min Countdown Timer */}
         <div className="col-span-6 flex flex-col items-center text-center p-8 rounded-3xl bg-slate-900/80 border border-amber-500/30 shadow-2xl">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl mb-3">
             🍕
           </div>
           <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">
-            Networking Timer
+            Networking Timer (50 min)
           </span>
           <div className="text-6xl font-black text-white font-mono tracking-tight my-2">
             {formatTimer(secondsLeft)}

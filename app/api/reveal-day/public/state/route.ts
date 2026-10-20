@@ -77,6 +77,22 @@ export async function GET(request: Request) {
       }
     } catch {}
 
+    // 4. Fetch latest pizza timer from app_state
+    let pizzaTimerSeconds = 50 * 60;
+    let isPizzaTimerPaused = false;
+    try {
+      const { data: timerRow } = await supabase
+        .from('app_state')
+        .select('value')
+        .eq('key', `pizza_timer_${eventId}`)
+        .maybeSingle();
+
+      if (timerRow?.value?.secondsLeft !== undefined) {
+        pizzaTimerSeconds = Number(timerRow.value.secondsLeft);
+        isPizzaTimerPaused = Boolean(timerRow.value.isPaused);
+      }
+    } catch {}
+
     return NextResponse.json(
       {
         publicState: {
@@ -87,6 +103,8 @@ export async function GET(request: Request) {
           currentRevealIndex: pubState.current_reveal_index,
           currentBatchIndex: pubState.current_batch_index,
           currentCapsuleIndex,
+          pizzaTimerSeconds,
+          isPizzaTimerPaused,
           revealedPairsCount: pubState.revealed_pairs_count,
           dataVersion: pubState.data_version,
           sequence: pubState.sequence,

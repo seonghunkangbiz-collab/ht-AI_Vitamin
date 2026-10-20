@@ -40,6 +40,7 @@ interface RevealDayShellProps {
   onFactoryReset?: () => void;
   onRefreshData?: () => void;
   onNavigateCapsule?: (newIndex: number) => void;
+  onAdjustPizzaTimer?: (seconds: number, isPaused: boolean) => void;
   isDisplayOnly?: boolean;
 }
 
@@ -60,6 +61,7 @@ export default function RevealDayShell({
   onFactoryReset,
   onRefreshData,
   onNavigateCapsule,
+  onAdjustPizzaTimer,
   isDisplayOnly = false
 }: RevealDayShellProps) {
   // Screen width & Fullscreen state
@@ -321,6 +323,7 @@ export default function RevealDayShell({
               onOpenPreflight={() => setShowPreflight(true)}
               onNavigateCapsule={onNavigateCapsule}
               capsulesCount={capsules.length}
+              onAdjustPizzaTimer={onAdjustPizzaTimer}
             />
           </aside>
         )}

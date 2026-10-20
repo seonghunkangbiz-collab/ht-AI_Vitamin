@@ -224,7 +224,25 @@ export default function AdminRevealDayPage() {
     } catch {}
   };
 
-  // 6. Emergency Blackout & Holding Toggles
+  // 6. Pizza Party Timer Adjust Handler (Syncs countdown across Operator & Projector screen)
+  const handleAdjustPizzaTimer = async (seconds: number, isPaused: boolean) => {
+    setPublicState(prev => prev ? { ...prev, pizzaTimerSeconds: seconds, isPizzaTimerPaused: isPaused } : null);
+    sendBroadcast('pizza_timer', { seconds, isPaused });
+    try {
+      await fetch('/api/admin/reveal-day/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          action: 'set_pizza_timer',
+          seconds,
+          isPaused
+        })
+      });
+    } catch {}
+  };
+
+  // 7. Emergency Blackout & Holding Toggles
   const handleToggleEmergency = async (type: 'blackout' | 'holding', active: boolean) => {
     try {
       await fetch('/api/admin/reveal-day/state', {
@@ -346,6 +364,7 @@ export default function AdminRevealDayPage() {
         onFactoryReset={handleFactoryReset}
         onRefreshData={fetchAllData}
         onNavigateCapsule={handleNavigateCapsule}
+        onAdjustPizzaTimer={handleAdjustPizzaTimer}
         isDisplayOnly={false}
       />
     </div>

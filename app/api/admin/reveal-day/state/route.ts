@@ -96,6 +96,21 @@ export async function GET(request: Request) {
       }
     } catch {}
 
+    let pizzaTimerSeconds = 50 * 60;
+    let isPizzaTimerPaused = false;
+    try {
+      const { data: timerRow } = await supabase
+        .from('app_state')
+        .select('value')
+        .eq('key', `pizza_timer_${eventId}`)
+        .maybeSingle();
+
+      if (timerRow?.value?.secondsLeft !== undefined) {
+        pizzaTimerSeconds = Number(timerRow.value.secondsLeft);
+        isPizzaTimerPaused = Boolean(timerRow.value.isPaused);
+      }
+    } catch {}
+
     return NextResponse.json({
       event: {
         id: event.id,
@@ -126,6 +141,8 @@ export async function GET(request: Request) {
         currentRevealIndex: publicState.current_reveal_index,
         currentBatchIndex: publicState.current_batch_index,
         currentCapsuleIndex,
+        pizzaTimerSeconds,
+        isPizzaTimerPaused,
         revealedPairsCount: publicState.revealed_pairs_count,
         dataVersion: publicState.data_version,
         sequence: publicState.sequence,
@@ -220,6 +237,23 @@ export async function POST(request: Request) {
         });
 
       return NextResponse.json({ success: true, currentCapsuleIndex: targetIndex });
+    }
+
+    if (action === 'set_pizza_timer') {
+      const { seconds, isPaused } = body;
+      const targetSeconds = typeof seconds === 'number' ? Math.max(0, seconds) : 50 * 60;
+      const targetPaused = Boolean(isPaused);
+      const supabase = getSupabaseServerClient();
+      const now = new Date().toISOString();
+
+      await supabase
+        .from('app_state')
+        .upsert({
+          key: `pizza_timer_${eventId}`,
+          value: { secondsLeft: targetSeconds, isPaused: targetPaused, updatedAt: now }
+        });
+
+      return NextResponse.json({ success: true, secondsLeft: targetSeconds, isPaused: targetPaused });
     }
 
     if (action === 'reset_checkins') {
@@ -328,13 +362,13 @@ export async function POST(request: Request) {
         })
         .eq('event_id', eventId);
 
-      // 5. Reset capsule index in app_state
+      // 5. Reset capsule index and pizza timer in app_state
       await supabase
         .from('app_state')
-        .upsert({
-          key: `capsule_index_${eventId}`,
-          value: { index: 0, updatedAt: now }
-        });
+        .upsert([
+          { key: `capsule_index_${eventId}`, value: { index: 0, updatedAt: now } },
+          { key: `pizza_timer_${eventId}`, value: { secondsLeft: 50 * 60, isPaused: false, updatedAt: now } }
+        ]);
 
       // 6. Audit log
       await supabase.from('reveal_audit_logs').insert({

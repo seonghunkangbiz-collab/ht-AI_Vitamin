@@ -126,7 +126,11 @@ export default function StageCanvas({
           )}
 
           {(currentSegment === 'pizza_party' || currentSegment === 'ended') && (
-            <PizzaPartySegment />
+            <PizzaPartySegment
+              eventId={publicState.eventId}
+              initialSeconds={publicState.pizzaTimerSeconds ?? 50 * 60}
+              isPausedInitial={publicState.isPizzaTimerPaused ?? false}
+            />
           )}
         </motion.div>
       </AnimatePresence>

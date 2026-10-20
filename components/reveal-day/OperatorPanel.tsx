@@ -17,7 +17,9 @@ import {
   Sparkles,
   FileText,
   Volume2,
-  Square
+  Square,
+  Pause,
+  Clock
 } from 'lucide-react';
 
 interface OperatorPanelProps {
@@ -33,6 +35,7 @@ interface OperatorPanelProps {
   onOpenPreflight?: () => void;
   onNavigateCapsule?: (newIndex: number) => void;
   capsulesCount?: number;
+  onAdjustPizzaTimer?: (seconds: number, isPaused: boolean) => void;
   isProcessing?: boolean;
 }
 
@@ -48,6 +51,7 @@ export default function OperatorPanel({
   onOpenPreflight,
   onNavigateCapsule,
   capsulesCount = 24,
+  onAdjustPizzaTimer,
   isProcessing
 }: OperatorPanelProps) {
   const { currentSegment, isBlackout, isHolding } = publicState;
@@ -348,16 +352,126 @@ export default function OperatorPanel({
         )}
 
         {currentSegment === 'pizza_party' && (
-          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-red-500/30 flex flex-col gap-2">
-            <div className="text-[11px] font-bold text-red-400">행사 최종 마감</div>
-            <button
-              onClick={() => setShowConfirmModal('end_event')}
-              disabled={isProcessing}
-              className="py-2.5 px-3 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-            >
-              <Square className="w-4 h-4" />
-              <span>행사 최종 종료 확정 (End Event)</span>
-            </button>
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/30 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                <Clock className="w-4 h-4" />
+                <span>🍕 피자 파티 카운트다운 타이머</span>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                publicState.isPizzaTimerPaused
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              }`}>
+                {publicState.isPizzaTimerPaused ? '일시정지 중' : '실시간 카운트다운 중'}
+              </span>
+            </div>
+
+            {/* Large Digital Timer Readout */}
+            <div className="flex items-center justify-center py-2 px-3 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span className="font-mono text-3xl font-black tracking-wider text-emerald-400">
+                {String(Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60)).padStart(2, '0')}
+                :
+                {String((publicState.pizzaTimerSeconds ?? 50 * 60) % 60).padStart(2, '0')}
+              </span>
+            </div>
+
+            {/* Quick Adjust Buttons */}
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[10px] text-slate-400 font-semibold">시간 미세 조정 (빔프로젝터 실시간 동기화)</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: '-10분', delta: -10 * 60 },
+                  { label: '-5분', delta: -5 * 60 },
+                  { label: '+5분', delta: 5 * 60 },
+                  { label: '+10분', delta: 10 * 60 },
+                ].map(({ label, delta }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
+                      const next = Math.max(0, cur + delta);
+                      onAdjustPizzaTimer?.(next, publicState.isPizzaTimerPaused ?? false);
+                    }}
+                    disabled={isProcessing}
+                    className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-[11px] font-bold text-slate-200 transition-all border border-slate-700/60"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[10px] text-slate-400 font-semibold">빠른 시간 세팅</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[50, 40, 30, 20].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => onAdjustPizzaTimer?.(mins * 60, publicState.isPizzaTimerPaused ?? false)}
+                    disabled={isProcessing}
+                    className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition-all border ${
+                      Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60) === mins
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                        : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-800'
+                    }`}
+                  >
+                    {mins}분{mins === 50 ? ' (기본)' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pause / Resume & Reset Controls */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => {
+                  const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
+                  const nextPaused = !publicState.isPizzaTimerPaused;
+                  onAdjustPizzaTimer?.(cur, nextPaused);
+                }}
+                disabled={isProcessing}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                  publicState.isPizzaTimerPaused
+                    ? 'bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border-emerald-500/40'
+                    : 'bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border-amber-500/40'
+                }`}
+              >
+                {publicState.isPizzaTimerPaused ? (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>타이머 재개</span>
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-3.5 h-3.5" />
+                    <span>일시정지</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => onAdjustPizzaTimer?.(50 * 60, false)}
+                disabled={isProcessing}
+                className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-slate-700"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>50분 초기화</span>
+              </button>
+            </div>
+
+            {/* End Event Modal Trigger */}
+            <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
+              <button
+                onClick={() => setShowConfirmModal('end_event')}
+                disabled={isProcessing}
+                className="py-2 px-3 rounded-xl bg-red-600/70 hover:bg-red-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span>행사 최종 종료 확정 (End Event)</span>
+              </button>
+            </div>
           </div>
         )}
 

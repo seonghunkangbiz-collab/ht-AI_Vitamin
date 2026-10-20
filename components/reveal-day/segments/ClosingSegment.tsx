@@ -47,16 +47,6 @@ export default function ClosingSegment() {
             <br />
             HT사업본부 모든 가족 여러분께 진심으로 감사드립니다.
           </p>
-
-          <div className="mt-8 flex items-center gap-3 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 max-w-md w-full text-left">
-            <span className="text-2xl">🎤</span>
-            <div>
-              <div className="text-xs font-bold text-sky-400">MC 진행 멘트</div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                본부장님의 따뜻한 격려 말씀 후, 다함께 피자 파티 및 단체 기념 촬영으로 이어집니다.
-              </p>
-            </div>
-          </div>
         </motion.div>
       </div>
 
