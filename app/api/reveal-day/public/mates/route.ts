@@ -64,17 +64,64 @@ export async function GET(request: Request) {
       });
     }
 
+    // 3. Fetch user guesses and check-ins for this event
+    const { data: guessRows } = await supabase
+      .from('reveal_interactions')
+      .select('user_id, payload')
+      .eq('event_id', eventId)
+      .eq('type', 'guess');
+
+    const userGuessMap = new Map<string, string>();
+    (guessRows || []).forEach(g => {
+      if (g.user_id && g.payload?.guessedUserId) {
+        userGuessMap.set(g.user_id, g.payload.guessedUserId);
+      }
+    });
+
+    const { data: checkinRows } = await supabase
+      .from('reveal_interactions')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('type', 'checkin');
+
+    const checkinSet = new Set((checkinRows || []).map(c => c.user_id));
+
     // STRICT ZERO-LEAKAGE RULE:
-    // Only return pairs with index < currentRevealIndex!
-    // Unrevealed pairs are strictly truncated and excluded from response body.
-    const revealedPairs = allPairs.slice(0, currentRevealIndex).map(p => ({
-      ...p,
-      isRevealed: true
-    }));
+    // Only revealed pairs (index < currentRevealIndex) reveal observer name/team/id.
+    // Unrevealed pairs provide target info (for card layout) with strictly masked observer data.
+    const safePairs = allPairs.map((p, idx) => {
+      const isRevealed = idx < currentRevealIndex;
+      const dbGuessed = userGuessMap.get(p.targetId) === p.observerId;
+      const isGuessed = dbGuessed || (isRehearsal && Boolean(p.isGuessedCorrectly));
+      const isCheckedIn = checkinSet.has(p.targetId) || isRehearsal;
+
+      if (isRevealed) {
+        return {
+          ...p,
+          isRevealed: true,
+          isGuessedCorrectly: isGuessed,
+          isTargetCheckedIn: isCheckedIn
+        };
+      } else {
+        return {
+          id: p.id,
+          batchIndex: p.batchIndex,
+          targetId: p.targetId,
+          targetName: p.targetName,
+          targetTeam: p.targetTeam,
+          observerId: '',
+          observerName: '???',
+          observerTeam: '비공개',
+          isRevealed: false,
+          isGuessedCorrectly: false,
+          isTargetCheckedIn: isCheckedIn
+        };
+      }
+    });
 
     return NextResponse.json({
-      revealedPairs,
-      revealedCount: revealedPairs.length,
+      revealedPairs: safePairs,
+      revealedCount: safePairs.filter(p => p.isRevealed).length,
       totalCount: allPairs.length,
       currentRevealIndex
     });

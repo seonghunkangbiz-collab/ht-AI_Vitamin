@@ -154,6 +154,8 @@ export interface MatePairReveal {
   targetTeam: string;
   isRevealed: boolean;
   revealedAt?: string;
+  isGuessedCorrectly?: boolean;
+  isTargetCheckedIn?: boolean;
 }
 
 export interface PreflightItem {

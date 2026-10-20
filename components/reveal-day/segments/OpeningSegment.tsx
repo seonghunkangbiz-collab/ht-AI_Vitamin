@@ -84,7 +84,7 @@ export default function OpeningSegment({ checkinCount, totalAttendees = 24, mode
               “Connecting People, Growing Together”
             </p>
             <p className="text-xs text-slate-400 max-w-lg leading-relaxed mt-1">
-              지난 두 달 동안 서로를 묵묵히 관찰하고 따뜻한 격려를 전해준 Mystery Mate와 AI 타임캡슐을 전격 공개합니다.
+              지난 두 달 동안 서로를 묵묵히 관찰하고 따뜻한 격려를 전해준 비타민 메이트와 AI 타임캡슐을 전격 공개합니다.
             </p>
           </motion.div>
 

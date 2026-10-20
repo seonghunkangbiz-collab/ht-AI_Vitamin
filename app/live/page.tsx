@@ -440,7 +440,7 @@ function LiveAttendeeContent() {
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col gap-3">
             <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
               <HelpCircle className="w-4 h-4 text-indigo-500" />
-              <span>Mystery Mate 추측하기</span>
+              <span>비타민 메이트 추측하기</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
               지난 2개월간 나를 묵묵히 관찰하고 지켜봐 준 비타민은 누구였을까요? 예상되는 동료를 선택해 보세요!

@@ -1,14 +1,15 @@
 import type { RevealTimeCapsuleItem, MatePairReveal, RevealCuratedItem, RevealPublicState } from './types';
+import { INITIAL_USERS } from '../seedData';
 
-export const REHEARSAL_USERS = Array.from({ length: 24 }).map((_, i) => {
-  const char = String.fromCharCode(65 + i); // A, B, C...
-  const team = i < 8 ? '전략사업개발팀' : i < 16 ? 'Global사업개발팀' : 'AX 사업개발팀';
-  const avatars = ['👨‍💼', '👩‍💼', '👨‍💻', '👩‍💻', '👨‍🔬', '👩‍🎨', '👨‍🏫', '👨‍🎓'];
+// 24 actual active members from seedData (excluding admin)
+const REAL_ATTENDEES = INITIAL_USERS.filter(u => u.role !== 'admin');
+
+export const REHEARSAL_USERS = REAL_ATTENDEES.map((user, i) => {
   return {
     id: `rehearsal-user-${i + 1}`,
-    name: `구성원 ${char}`,
-    team,
-    avatar: avatars[i % avatars.length],
+    name: user.name,
+    team: user.team,
+    avatar: user.avatar,
     role: 'user' as const
   };
 });
@@ -20,8 +21,10 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
     // 2 observers for each target
     const obs1 = REHEARSAL_USERS[(idx + 7) % 24];
     const obs2 = REHEARSAL_USERS[(idx + 13) % 24];
-    [obs1, obs2].forEach((observer) => {
+    [obs1, obs2].forEach((observer, obsSubIdx) => {
       const batchIndex = Math.floor(pairIdx / 8); // 6 batches of 8 relations
+      // Realistic simulation: some attendees guessed their mate correctly for demo/rehearsal
+      const isGuessed = (idx + obsSubIdx) % 3 === 0;
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,
         batchIndex,
@@ -31,7 +34,9 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
         targetId: user.id,
         targetName: user.name,
         targetTeam: user.team,
-        isRevealed: false
+        isRevealed: false,
+        isGuessedCorrectly: isGuessed,
+        isTargetCheckedIn: true
       });
       pairIdx++;
     });
