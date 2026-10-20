@@ -264,14 +264,14 @@ export async function runPreflightChecks(eventId: string, adminId: string): Prom
     if (asset?.url) {
       items.push({
         key: 'audio_check',
-        title: 'Suno Vitamin Song 음원 자산',
+        title: 'HT 사업본부 AI Vitamin Song 음원 자산',
         status: 'pass',
         message: `음원 등록 완료 (${asset.url})`
       });
     } else {
       items.push({
         key: 'audio_check',
-        title: 'Suno Vitamin Song 음원 자산',
+        title: 'HT 사업본부 AI Vitamin Song 음원 자산',
         status: 'warn',
         message: '기본 음원 URL 사용 중 (/audio/vitamin_song.mp3)'
       });
@@ -279,7 +279,7 @@ export async function runPreflightChecks(eventId: string, adminId: string): Prom
   } catch (e: any) {
     items.push({
       key: 'audio_check',
-      title: 'Suno Vitamin Song 음원 자산',
+      title: 'HT 사업본부 AI Vitamin Song 음원 자산',
       status: 'warn',
       message: e.message
     });

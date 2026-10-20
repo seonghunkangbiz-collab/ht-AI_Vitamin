@@ -51,7 +51,7 @@ export default function LiveFeedSidebar({
     }
   }, [messages]);
 
-  // 1. Supabase Realtime Broadcast Listener
+  // 1. Supabase Realtime Broadcast Listener (Sub-50ms instant live communication)
   useEffect(() => {
     isMountedRef.current = true;
     try {
@@ -59,12 +59,13 @@ export default function LiveFeedSidebar({
       const channelName = `reveal_channel_${eventId}`;
 
       const channel = sb
-        .channel(`feed_listener_${eventId}`)
+        .channel(channelName)
         .on('broadcast', { event: 'cheer' }, (payload) => {
-          if (!isMountedRef.current || !payload?.payload) return;
-          const data = payload.payload;
+          if (!isMountedRef.current) return;
+          const data = payload?.payload || payload;
+          if (!data) return;
           addMessage({
-            id: data.id || `msg-${Date.now()}-${Math.random()}`,
+            id: data.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             senderName: data.senderName || '익명 메이트',
             senderTeam: data.senderTeam || '',
             message: data.message || null,
@@ -73,10 +74,11 @@ export default function LiveFeedSidebar({
           });
         })
         .on('broadcast', { event: 'reaction' }, (payload) => {
-          if (!isMountedRef.current || !payload?.payload) return;
-          const data = payload.payload;
+          if (!isMountedRef.current) return;
+          const data = payload?.payload || payload;
+          if (!data) return;
           addMessage({
-            id: data.id || `msg-${Date.now()}-${Math.random()}`,
+            id: data.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             senderName: data.senderName || '익명 메이트',
             senderTeam: data.senderTeam || '',
             message: null,
@@ -119,7 +121,7 @@ export default function LiveFeedSidebar({
     };
 
     fetchRecent();
-    const interval = setInterval(fetchRecent, 3000);
+    const interval = setInterval(fetchRecent, 1500);
     return () => clearInterval(interval);
   }, [eventId, addMessage]);
 

@@ -34,21 +34,44 @@ function DisplayContent() {
         const matesRes = await fetch(`/api/reveal-day/public/mates?eventId=${eventId}&_t=${t}`);
         if (matesRes.ok) {
           const data = await matesRes.json();
-          if (data.revealedPairs) setMatePairs(data.revealedPairs);
+          if (data.revealedPairs) {
+            setMatePairs(prev => {
+              if (prev.length === data.revealedPairs.length && prev.every((p, i) => p.id === data.revealedPairs[i]?.id && p.isRevealed === data.revealedPairs[i]?.isRevealed)) {
+                return prev;
+              }
+              return data.revealedPairs;
+            });
+          }
         }
 
         // Fetch valid draws
         const drawsRes = await fetch(`/api/admin/reveal-day/draw?eventId=${eventId}&_t=${t}`);
         if (drawsRes.ok) {
           const data = await drawsRes.json();
-          if (data.draws) setDraws(data.draws.filter((d: any) => !d.isVoided));
+          if (data.draws) {
+            const valid = data.draws.filter((d: any) => !d.isVoided);
+            setDraws(prev => {
+              if (prev.length === valid.length && prev.every((p, i) => p.id === valid[i]?.id)) {
+                return prev;
+              }
+              return valid;
+            });
+          }
         }
 
         // Fetch approved capsules
         const capsRes = await fetch(`/api/admin/reveal-day/capsules?eventId=${eventId}&_t=${t}`);
         if (capsRes.ok) {
           const data = await capsRes.json();
-          if (data.capsules) setCapsules(data.capsules.filter((c: any) => c.approvalStatus === 'approved'));
+          if (data.capsules) {
+            const approved = data.capsules.filter((c: any) => c.approvalStatus === 'approved');
+            setCapsules(prev => {
+              if (prev.length === approved.length && prev.every((p, i) => p.id === approved[i]?.id)) {
+                return prev;
+              }
+              return approved;
+            });
+          }
         }
       } catch {}
     };
@@ -56,7 +79,7 @@ function DisplayContent() {
     fetchDisplayAssets();
     const interval = setInterval(fetchDisplayAssets, 3000);
     return () => clearInterval(interval);
-  }, [eventId, publicState?.currentSegment, publicState?.currentRevealIndex, publicState?.sequence]);
+  }, [eventId, publicState?.currentSegment, publicState?.currentRevealIndex]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

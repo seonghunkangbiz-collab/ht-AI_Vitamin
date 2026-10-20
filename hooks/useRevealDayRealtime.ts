@@ -124,7 +124,10 @@ export function useRevealDayRealtime({ eventId, initialState, onStateChange }: U
             const raw = payload?.payload || payload || {};
             const idx = typeof raw.index === 'number' ? raw.index : (typeof raw.currentCapsuleIndex === 'number' ? raw.currentCapsuleIndex : null);
             if (idx !== null) {
-              setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: idx } : null);
+              setPublicState(prev => {
+                if (!prev || prev.currentCapsuleIndex === idx) return prev;
+                return { ...prev, currentCapsuleIndex: idx };
+              });
             }
           }
         })

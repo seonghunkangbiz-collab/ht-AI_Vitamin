@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Heart, ChevronLeft, ChevronRight, Award, Quote, CheckCircle } from 'lucide-react';
 import { RevealTimeCapsuleItem } from '@/lib/reveal-day/types';
@@ -13,8 +13,10 @@ interface TimeCapsuleSegmentProps {
 }
 
 export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate, hideControls }: TimeCapsuleSegmentProps) {
-  const approvedCapsules = capsules.filter(c => c.approvalStatus === 'approved');
-  const spotlightCapsules = approvedCapsules.length > 0 ? approvedCapsules : capsules;
+  const spotlightCapsules = useMemo(() => {
+    const approved = capsules.filter(c => c.approvalStatus === 'approved');
+    return approved.length > 0 ? approved : capsules;
+  }, [capsules]);
 
   const [localIndex, setLocalIndex] = useState(0);
   const activeIndex = typeof currentIndex === 'number' 
@@ -25,13 +27,17 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
 
   const handlePrev = () => {
     const prevIdx = activeIndex === 0 ? spotlightCapsules.length - 1 : activeIndex - 1;
-    setLocalIndex(prevIdx);
+    if (typeof currentIndex !== 'number') {
+      setLocalIndex(prevIdx);
+    }
     if (onNavigate) onNavigate(prevIdx);
   };
 
   const handleNext = () => {
     const nextIdx = activeIndex === spotlightCapsules.length - 1 ? 0 : activeIndex + 1;
-    setLocalIndex(nextIdx);
+    if (typeof currentIndex !== 'number') {
+      setLocalIndex(nextIdx);
+    }
     if (onNavigate) onNavigate(nextIdx);
   };
 
@@ -55,7 +61,7 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
           <h2 className="text-2xl font-black text-white">AI Time Capsule Spotlight</h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-400 font-mono font-bold">
             {activeIndex + 1} / {spotlightCapsules.length}
           </span>
           {!hideControls && (
@@ -81,13 +87,13 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
 
       {/* Spotlight Card */}
       <div className="my-auto max-w-4xl mx-auto w-full z-10">
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false} mode="wait">
           <motion.div
             key={activeCapsule.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
             className="p-8 rounded-3xl bg-slate-900/90 border border-indigo-500/30 shadow-2xl backdrop-blur-md relative"
           >
             {/* Top Badge & Member Info */}

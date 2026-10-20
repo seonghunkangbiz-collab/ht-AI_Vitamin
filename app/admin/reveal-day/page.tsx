@@ -211,7 +211,6 @@ export default function AdminRevealDayPage() {
   const handleNavigateCapsule = async (newIndex: number) => {
     setPublicState(prev => prev ? { ...prev, currentCapsuleIndex: newIndex } : null);
     sendBroadcast('capsule_index', { index: newIndex, currentCapsuleIndex: newIndex });
-    sendBroadcast('state_change', { currentCapsuleIndex: newIndex });
     try {
       await fetch('/api/admin/reveal-day/state', {
         method: 'POST',

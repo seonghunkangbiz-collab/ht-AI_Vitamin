@@ -25,7 +25,7 @@ export async function GET(request: Request) {
         .eq('event_id', eventId)
         .eq('type', 'reaction')
         .order('created_at', { ascending: false })
-        .limit(8);
+        .limit(20);
 
       return NextResponse.json(
         {

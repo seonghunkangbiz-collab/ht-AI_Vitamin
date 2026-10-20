@@ -46,7 +46,7 @@ export const SEGMENT_METADATA: Record<RevealSegment, { title: string; durationMi
     description: '서버 CSPRNG 기반 공정하고 투명한 럭키 드로우'
   },
   song: {
-    title: 'Suno Vitamin Song',
+    title: 'HT 사업본부 AI Vitamin Song',
     durationMinutes: 5,
     timeRange: '17:00~17:05',
     description: 'AI가 제작한 HT사업본부 비타민 헌정곡 감상'

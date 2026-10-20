@@ -219,22 +219,6 @@ export async function POST(request: Request) {
           value: { index: targetIndex, updatedAt: now }
         });
 
-      // Update sequence in reveal_public_state to broadcast instant change
-      const { data: currPub } = await supabase
-        .from('reveal_public_state')
-        .select('sequence')
-        .eq('event_id', eventId)
-        .maybeSingle();
-
-      const nextSequence = (currPub?.sequence || 1) + 1;
-      await supabase
-        .from('reveal_public_state')
-        .update({
-          sequence: nextSequence,
-          updated_at: now
-        })
-        .eq('event_id', eventId);
-
       return NextResponse.json({ success: true, currentCapsuleIndex: targetIndex });
     }
 

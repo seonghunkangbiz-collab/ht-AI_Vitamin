@@ -323,7 +323,7 @@ export default function SongSegment({ songUrl = '/audio/vitamin_song.mp3' }: Son
             Segment 6
           </span>
           <h2 className="text-2xl font-black text-white flex items-center gap-2">
-            <span>Suno AI Vitamin Song</span>
+            <span>HT 사업본부 AI Vitamin Song</span>
             <Music className="w-5 h-5 text-purple-400" />
           </h2>
           <span className="hidden md:inline-block text-xs text-purple-300/80 font-medium ml-2">
@@ -426,9 +426,9 @@ export default function SongSegment({ songUrl = '/audio/vitamin_song.mp3' }: Son
               )}
             </div>
 
-            <h3 className="text-xl font-black text-white tracking-tight">HT AI Vitamin Song</h3>
+            <h3 className="text-xl font-black text-white tracking-tight">HT 사업본부 AI Vitamin Song</h3>
             <p className="text-xs text-purple-300 mt-1 font-medium">
-              Suno AI Generated • 2026 HT Business Division
+              AI Generated • 2026 HT 사업본부
             </p>
 
             {/* Soundwave Visualizer Bars */}
