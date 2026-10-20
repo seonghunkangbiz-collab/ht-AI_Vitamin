@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import MobileLayout from '@/components/MobileLayout';
 import CodeLoginModal from '@/components/CodeLoginModal';
@@ -48,6 +48,7 @@ function LiveAttendeeContent() {
   const [customCheerText, setCustomCheerText] = useState('');
   const [isSendingCheer, setIsSendingCheer] = useState(false);
   const [cheerFeedback, setCheerFeedback] = useState<string | null>(null);
+  const liveChannelRef = useRef<any>(null);
 
   // Realtime hook
   const { publicState } = useRevealDayRealtime({ eventId });
@@ -106,18 +107,21 @@ function LiveAttendeeContent() {
     return () => clearInterval(interval);
   }, [currentUserState, eventId, myWinningPrize]);
 
-  // Listen to checkin_reset broadcast to sync reset from admin
+  // Realtime channel subscription on reveal_channel for sub-50ms stage synchronization
   useEffect(() => {
     try {
       const sb = getSupabaseClient();
       const channel = sb
-        .channel(`live_attendee_${eventId}`)
+        .channel(`reveal_channel_${eventId}`)
         .on('broadcast', { event: 'checkin_reset' }, () => {
           setIsCheckedIn(false);
         })
         .subscribe();
+      liveChannelRef.current = channel;
       return () => {
-        sb.removeChannel(channel);
+        try {
+          sb.removeChannel(channel);
+        } catch {}
       };
     } catch {}
   }, [eventId]);
@@ -135,12 +139,13 @@ function LiveAttendeeContent() {
         setIsCheckedIn(true);
         // Instant broadcast for sub-50ms stage synchronization
         try {
-          const sb = getSupabaseClient();
-          sb.channel(`reveal_channel_${eventId}`).send({
-            type: 'broadcast',
-            event: 'checkin',
-            payload: { checkinCount: data.checkinCount }
-          });
+          if (liveChannelRef.current) {
+            liveChannelRef.current.send({
+              type: 'broadcast',
+              event: 'checkin',
+              payload: { checkinCount: data.checkinCount }
+            });
+          }
         } catch {}
         try {
           confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
@@ -167,12 +172,13 @@ function LiveAttendeeContent() {
         const data = await res.json().catch(() => ({}));
         setIsCheckedIn(false);
         try {
-          const sb = getSupabaseClient();
-          sb.channel(`reveal_channel_${eventId}`).send({
-            type: 'broadcast',
-            event: 'checkin',
-            payload: { checkinCount: data.checkinCount }
-          });
+          if (liveChannelRef.current) {
+            liveChannelRef.current.send({
+              type: 'broadcast',
+              event: 'checkin',
+              payload: { checkinCount: data.checkinCount }
+            });
+          }
         } catch {}
       } else {
         alert('체크인 취소에 실패했습니다.');
@@ -193,18 +199,27 @@ function LiveAttendeeContent() {
 
     // 1. Optimistic Realtime Broadcast for instant appearance on projector stage
     try {
-      const sb = getSupabaseClient();
-      sb.channel(`reveal_channel_${eventId}`).send({
-        type: 'broadcast',
-        event: 'cheer',
-        payload: {
-          reaction,
-          message: trimmedMessage || undefined,
-          senderName,
-          senderTeam,
-          id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
-        }
-      });
+      const payload = {
+        reaction,
+        message: trimmedMessage || undefined,
+        senderName,
+        senderTeam,
+        id: `cheer-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+      };
+      if (liveChannelRef.current) {
+        liveChannelRef.current.send({
+          type: 'broadcast',
+          event: 'cheer',
+          payload
+        });
+      } else {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${eventId}`).send({
+          type: 'broadcast',
+          event: 'cheer',
+          payload
+        });
+      }
     } catch {}
 
     // 2. Confetti on attendee device

@@ -65,9 +65,6 @@ export default function StageCanvas({
   // 3. 16:9 Presentation Stage
   return (
     <div className="w-full h-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
-      {/* Real-time Cheering Overlay (Floating Emojis & Message Toasts) */}
-      <CheerOverlay eventId={publicState.eventId} />
-
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSegment}
@@ -122,6 +119,9 @@ export default function StageCanvas({
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Real-time Cheering Overlay (Floating Emojis & Message Toasts in Top-Right) */}
+      <CheerOverlay eventId={publicState.eventId} />
     </div>
   );
 }

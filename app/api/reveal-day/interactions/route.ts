@@ -7,12 +7,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request: Request) {
-  const auth = requireAuth(request);
-  if ('errorResponse' in auth) {
-    return auth.errorResponse;
-  }
-
-  const { session } = auth;
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
   const eventId = searchParams.get('eventId') || 'event-live-20261028';
@@ -20,6 +14,48 @@ export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
+
+  // Allow public fetch for recent cheers for the beam projector display
+  if (type === 'recent_cheers') {
+    try {
+      const supabase = getSupabaseServerClient();
+      const { data: cheers } = await supabase
+        .from('reveal_interactions')
+        .select('id, payload, created_at')
+        .eq('event_id', eventId)
+        .eq('type', 'reaction')
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      return NextResponse.json(
+        {
+          cheers: (cheers || []).map(c => ({
+            id: c.id,
+            senderName: c.payload?.senderName || '익명 메이트',
+            senderTeam: c.payload?.senderTeam || '',
+            reaction: c.payload?.reaction || 'heart',
+            message: c.payload?.message || null,
+            timestamp: new Date(c.created_at).getTime()
+          }))
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        }
+      );
+    } catch (e: any) {
+      return NextResponse.json({ cheers: [] });
+    }
+  }
+
+  const auth = requireAuth(request);
+  if ('errorResponse' in auth) {
+    return auth.errorResponse;
+  }
+
+  const { session } = auth;
 
   try {
     const supabase = getSupabaseServerClient();
