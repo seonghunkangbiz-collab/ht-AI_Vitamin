@@ -19,7 +19,16 @@ export default function LuckyDrawSegment({
   totalEligible
 }: LuckyDrawSegmentProps) {
   const validDraws = draws.filter(d => !d.isVoided);
-  const latestWinner = activeDraw || (validDraws.length > 0 ? validDraws[validDraws.length - 1] : null);
+
+  // Sort descending by created_at / roundNumber so the most recently drawn winner is ALWAYS at index 0
+  const sortedRecentFirst = [...validDraws].sort((a, b) => {
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    if (timeA !== timeB) return timeB - timeA;
+    return b.roundNumber - a.roundNumber;
+  });
+
+  const latestWinner = activeDraw || (sortedRecentFirst.length > 0 ? sortedRecentFirst[0] : null);
 
   return (
     <div className="w-full h-full flex flex-col justify-between p-10 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 text-white relative overflow-hidden select-none">
@@ -143,26 +152,48 @@ export default function LuckyDrawSegment({
           </div>
 
           <div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1">
-            {validDraws.length === 0 ? (
+            {sortedRecentFirst.length === 0 ? (
               <p className="text-xs text-slate-600 text-center py-8">아직 당첨자가 없습니다.</p>
             ) : (
-              validDraws.map((d, i) => (
-                <div
-                  key={d.id}
-                  className="p-3 rounded-2xl bg-slate-900/70 border border-slate-800/80 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-black text-xs">
-                      R{d.roundNumber}
+              sortedRecentFirst.map((d, i) => {
+                const isLatest = latestWinner && d.id === latestWinner.id;
+                const isTest = d.prizeName.includes('아이패드') || d.prizeName.includes('맥북');
+                return (
+                  <div
+                    key={d.id}
+                    className={`p-3 rounded-2xl border transition-all flex items-center justify-between ${
+                      isLatest
+                        ? 'bg-amber-500/20 border-amber-400 shadow-md shadow-amber-500/20 ring-1 ring-amber-400/60'
+                        : 'bg-slate-900/70 border-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
+                        isLatest ? 'bg-amber-400 text-slate-950 font-black' : 'bg-amber-500/10 text-amber-400'
+                      }`}>
+                        R{d.roundNumber}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-white">{d.winnerName} 님</span>
+                          {isLatest && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
+                              NEW
+                            </span>
+                          )}
+                          {isTest && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-sky-500/20 text-sky-300 font-semibold border border-sky-400/30">
+                              테스트
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate max-w-[140px]">{d.prizeName}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-black text-white">{d.winnerName} 님</div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[120px]">{d.prizeName}</div>
-                    </div>
+                    <span className="text-[10px] text-slate-500 font-medium">{d.winnerTeam}</span>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-medium">{d.winnerTeam}</span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

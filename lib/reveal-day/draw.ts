@@ -72,6 +72,20 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     };
   }
 
+  // 1-1. Ensure roundNumber does not collide with existing active draws in this event
+  const { data: existingRounds } = await supabase
+    .from('reveal_draws')
+    .select('round_number')
+    .eq('event_id', options.eventId)
+    .eq('is_voided', false);
+
+  const usedRounds = new Set((existingRounds || []).map(r => r.round_number));
+  let finalRoundNumber = options.roundNumber;
+  if (usedRounds.has(finalRoundNumber)) {
+    const maxRound = (existingRounds || []).reduce((max, r) => Math.max(max, r.round_number), 0);
+    finalRoundNumber = maxRound + 1;
+  }
+
   // 2. Fetch candidate pool
   let candidates: CandidateUser[] = [];
 
@@ -212,7 +226,7 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
   const drawRow = {
     id: drawId,
     event_id: options.eventId,
-    round_number: options.roundNumber,
+    round_number: finalRoundNumber,
     prize_name: options.prizeName,
     winner_id: winner.id,
     winner_name: winner.name,
@@ -241,7 +255,8 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     action: 'EXECUTE_LUCKY_DRAW',
     actor_id: options.adminId,
     details: {
-      roundNumber: options.roundNumber,
+      roundNumber: finalRoundNumber,
+      requestedRoundNumber: options.roundNumber,
       prizeName: options.prizeName,
       winnerId: winner.id,
       winnerName: winner.name,
@@ -256,7 +271,7 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     draw: {
       id: drawId,
       eventId: options.eventId,
-      roundNumber: options.roundNumber,
+      roundNumber: finalRoundNumber,
       prizeName: options.prizeName,
       winnerId: winner.id,
       winnerName: winner.name,
