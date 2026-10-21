@@ -262,10 +262,32 @@ export const REHEARSAL_CURATED_ITEMS: RevealCuratedItem[] = [
 ];
 
 export const REHEARSAL_PRIZES = [
-  { round: 1, name: '1등: 소니 노이즈캔슬링 프리미엄 헤드폰', count: 1 },
-  { round: 2, name: '2등: 신세계 백화점 상품권 10만원권', count: 2 },
-  { round: 3, name: '3등: 배달의민족 상품권 5만원권', count: 3 },
-  { round: 4, name: '특별상: 스타벅스 e카드 3만원권', count: 5 }
+  { round: 1, name: '아이패드 에어 11 M4 256GB', subtitle: '테스트 추첨 1', count: 1 },
+  { round: 2, name: '애플 맥북 프로 14 M5', subtitle: '테스트 추첨 2', count: 1 }
+];
+
+export const OFFICIAL_PRESET_AWARDS = [
+  {
+    round: 1,
+    name: '베스트 칭찬상 : 스타벅스 상품권 2만원권',
+    subtitle: '칭찬을 가장 많이 받은 사람',
+    badge: '👏 칭찬 최다 수신',
+    type: 'best_received'
+  },
+  {
+    round: 2,
+    name: '베스트 칭찬러 : 스타벅스 상품권 2만원권',
+    subtitle: '칭찬을 가장 많이 한 사람',
+    badge: '💌 칭찬 최다 발신',
+    type: 'best_giver'
+  },
+  {
+    round: 3,
+    name: '행운상 : 스타벅스 상품권 2만원권',
+    subtitle: '실시간 행운 난수 추첨',
+    badge: '🍀 실시간 행운상',
+    type: 'lucky'
+  }
 ];
 
 export function getRehearsalPublicState(): RevealPublicState {

@@ -114,9 +114,79 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     .update(sortedCandidates.map(c => c.id).join(','))
     .digest('hex');
 
-  // 5. Node CSPRNG (crypto.randomInt)
-  const selectedIndex = crypto.randomInt(0, sortedCandidates.length);
-  const winner = sortedCandidates[selectedIndex];
+  // 5. Winner Selection:
+  // - 베스트 칭찬상: 칭찬을 가장 많이 받은 사람 (Most received praises)
+  // - 베스트 칭찬러: 칭찬을 가장 많이 한 사람 (Most sent praises)
+  // - 행운상 / 테스트 / 기타: Node CSPRNG (crypto.randomInt) 공정 난수 추첨
+  let selectedIndex = 0;
+  let winner = sortedCandidates[0];
+
+  const isBestReceived = options.prizeName.includes('베스트 칭찬상') || options.prizeName.includes('칭찬을 가장 많이 받은');
+  const isBestGiver = options.prizeName.includes('베스트 칭찬러') || options.prizeName.includes('칭찬을 가장 많이 한');
+
+  if (isBestReceived) {
+    const { data: praises } = await supabase
+      .from('praise_messages')
+      .select('recipient_user_id');
+
+    const countMap: Record<string, number> = {};
+    (praises || []).forEach(p => {
+      if (p.recipient_user_id) {
+        countMap[p.recipient_user_id] = (countMap[p.recipient_user_id] || 0) + 1;
+      }
+    });
+
+    if (isRehearsal && Object.keys(countMap).length === 0) {
+      // Rehearsal fallback simulation
+      sortedCandidates.forEach((c, idx) => {
+        countMap[c.id] = (idx % 5 === 0) ? 14 : (idx % 3 === 0) ? 9 : 4;
+      });
+    }
+
+    let maxCount = -1;
+    sortedCandidates.forEach(c => {
+      const cnt = countMap[c.id] || 0;
+      if (cnt > maxCount) maxCount = cnt;
+    });
+
+    const topCandidates = sortedCandidates.filter(c => (countMap[c.id] || 0) === maxCount);
+    const chosenTopIdx = crypto.randomInt(0, topCandidates.length);
+    winner = topCandidates[chosenTopIdx];
+    selectedIndex = sortedCandidates.findIndex(c => c.id === winner.id);
+  } else if (isBestGiver) {
+    const { data: praises } = await supabase
+      .from('praise_messages')
+      .select('sender_user_id');
+
+    const countMap: Record<string, number> = {};
+    (praises || []).forEach(p => {
+      if (p.sender_user_id) {
+        countMap[p.sender_user_id] = (countMap[p.sender_user_id] || 0) + 1;
+      }
+    });
+
+    if (isRehearsal && Object.keys(countMap).length === 0) {
+      // Rehearsal fallback simulation
+      sortedCandidates.forEach((c, idx) => {
+        countMap[c.id] = (idx % 4 === 0) ? 18 : (idx % 2 === 0) ? 11 : 5;
+      });
+    }
+
+    let maxCount = -1;
+    sortedCandidates.forEach(c => {
+      const cnt = countMap[c.id] || 0;
+      if (cnt > maxCount) maxCount = cnt;
+    });
+
+    const topCandidates = sortedCandidates.filter(c => (countMap[c.id] || 0) === maxCount);
+    const chosenTopIdx = crypto.randomInt(0, topCandidates.length);
+    winner = topCandidates[chosenTopIdx];
+    selectedIndex = sortedCandidates.findIndex(c => c.id === winner.id);
+  } else {
+    // Pure CSPRNG random selection
+    selectedIndex = crypto.randomInt(0, sortedCandidates.length);
+    winner = sortedCandidates[selectedIndex];
+  }
 
   // 6. Persist Draw
   const drawId = `draw-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;

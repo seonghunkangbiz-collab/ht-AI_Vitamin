@@ -79,9 +79,35 @@ export default function LuckyDrawSegment({
                 👑
               </div>
 
-              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+              <span className="text-sm font-black text-amber-400 tracking-wider">
                 {latestWinner.prizeName}
               </span>
+
+              {/* Award category badge */}
+              {latestWinner.prizeName.includes('베스트 칭찬상') && (
+                <div className="mt-1.5 px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                  <span>👏</span>
+                  <span>칭찬을 가장 많이 받은 주인공!</span>
+                </div>
+              )}
+              {latestWinner.prizeName.includes('베스트 칭찬러') && (
+                <div className="mt-1.5 px-3.5 py-1 rounded-full bg-pink-500/20 border border-pink-400/40 text-pink-300 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                  <span>💌</span>
+                  <span>따뜻한 칭찬을 가장 많이 전한 주인공!</span>
+                </div>
+              )}
+              {latestWinner.prizeName.includes('행운상') && (
+                <div className="mt-1.5 px-3.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                  <span>🍀</span>
+                  <span>실시간 행운 난수 추첨 당첨!</span>
+                </div>
+              )}
+              {(latestWinner.prizeName.includes('아이패드') || latestWinner.prizeName.includes('맥북')) && (
+                <div className="mt-1.5 px-3.5 py-1 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                  <span>🧪</span>
+                  <span>리허설 사전 테스트 추첨</span>
+                </div>
+              )}
 
               <div className="mt-3 flex items-baseline justify-center gap-2">
                 <h2 className="text-4xl font-black text-white">{latestWinner.winnerName}</h2>

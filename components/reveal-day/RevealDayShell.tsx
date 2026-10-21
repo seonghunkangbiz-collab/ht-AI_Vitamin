@@ -314,6 +314,7 @@ export default function RevealDayShell({
             <OperatorPanel
               event={event}
               publicState={publicState}
+              draws={draws}
               onTransitionSegment={onTransitionSegment}
               onAdvanceMateIndex={onAdvanceMateIndex}
               onExecuteDraw={onExecuteDraw}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RevealSegment, RevealEvent, RevealPublicState, MatePairReveal } from '@/lib/reveal-day/types';
+import { RevealSegment, RevealEvent, RevealPublicState, MatePairReveal, RevealDrawItem } from '@/lib/reveal-day/types';
 import { SEGMENT_METADATA, ORDERED_SEGMENTS } from '@/lib/reveal-day/state-machine';
 import { 
   Play, 
@@ -19,12 +19,16 @@ import {
   Volume2,
   Square,
   Pause,
-  Clock
+  Clock,
+  Plus,
+  Award,
+  Check
 } from 'lucide-react';
 
 interface OperatorPanelProps {
   event: RevealEvent;
   publicState: RevealPublicState;
+  draws?: RevealDrawItem[];
   onTransitionSegment: (nextSegment: RevealSegment) => void;
   onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => void;
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
@@ -42,6 +46,7 @@ interface OperatorPanelProps {
 export default function OperatorPanel({
   event,
   publicState,
+  draws = [],
   onTransitionSegment,
   onAdvanceMateIndex,
   onExecuteDraw,
@@ -55,6 +60,7 @@ export default function OperatorPanel({
   isProcessing
 }: OperatorPanelProps) {
   const { currentSegment, isBlackout, isHolding } = publicState;
+  const isRehearsal = publicState.mode === 'rehearsal';
   const currentIdx = ORDERED_SEGMENTS.indexOf(currentSegment);
   const nextSegment = currentIdx < ORDERED_SEGMENTS.length - 1 ? ORDERED_SEGMENTS[currentIdx + 1] : null;
   const prevSegment = currentIdx > 0 ? ORDERED_SEGMENTS[currentIdx - 1] : null;
@@ -62,7 +68,9 @@ export default function OperatorPanel({
   // Modals / Inputs
   const [showConfirmModal, setShowConfirmModal] = useState<string | null>(null);
   const [drawRound, setDrawRound] = useState<number>(1);
-  const [drawPrizeName, setDrawPrizeName] = useState<string>('소니 프리미엄 노이즈캔슬링 헤드폰');
+  const [drawPrizeName, setDrawPrizeName] = useState<string>(
+    isRehearsal ? '아이패드 에어 11 M4 256GB' : '베스트 칭찬상 : 스타벅스 상품권 2만원권'
+  );
 
   const meta = SEGMENT_METADATA[currentSegment];
 
@@ -72,7 +80,7 @@ export default function OperatorPanel({
     journey: '“지난 2달 동안 우리 본부 가족들이 남겨주신 소중한 칭찬과 관찰 메모 통계를 함께 확인하겠습니다. 놀랍게도 서로에게 수많은 따뜻한 마음들이 모였습니다.”',
     mate_reveal: '“이제 모두가 가장 기다려온 순서입니다! 나를 지켜보고 격려해 준 비밀 비타민 메이트는 과연 누구였을까요? 한 분씩 공개해 드리겠습니다.”',
     time_capsule: '“동료들의 응원 메시지를 AI가 분석하여 작성한 감동의 타임캡슐을 오픈합니다. 참석자 여러분은 지금 모바일 화면에서 본인 캡슐을 확인하실 수 있습니다!”',
-    lucky_draw: '“행사의 즐거움을 더할 AI 럭키 드로우 시간입니다! 서버의 난수 알고리즘을 통해 공정하게 추첨을 진행하겠습니다. 첫 번째 라운드 시작합니다!”',
+    lucky_draw: '“행사의 즐거움을 더할 AI 럭키 드로우 시간입니다! 지난 2달간 가장 많은 칭찬을 받으신 분께 드리는 ‘베스트 칭찬상’, 가장 많은 칭찬을 전해주신 ‘베스트 칭찬러상’, 그리고 실시간 행운상 추첨을 시작합니다!”',
     song: '“AI가 우리 본부의 비타민 여정을 바탕으로 작곡하고 노래한 비타민 헌정곡입니다. 가사를 음미하며 함께 감상하시겠습니다.”',
     closing: '“마지막으로 지난 2달간 함께 힘써주신 모든 분들을 위해 본부장님의 맺음말씀이 있겠습니다. 본부장님을 큰 박수로 모시겠습니다!”',
     pizza_party: '“모든 순서가 끝났습니다! 준비된 피자와 함께 자유롭게 네트워킹을 즐겨주시고, 잠시 후 무대 앞에서 단체 기념사진을 촬영하겠습니다!”',
@@ -269,81 +277,220 @@ export default function OperatorPanel({
         {currentSegment === 'lucky_draw' && (
           <div className="p-3.5 rounded-xl bg-slate-950/70 border border-amber-500/30 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-amber-400">AI Lucky Draw 추첨 실행</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium">전체 24명 자동 풀 등록</span>
+              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                <Gift className="w-4 h-4" />
+                <span>AI Lucky Draw 추첨 콘솔</span>
+              </span>
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
+                24명 자동 풀 등록 (1인 1당첨)
+              </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-1">라운드</label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={drawRound}
-                    onChange={(e) => setDrawRound(Number(e.target.value))}
-                    className="w-full py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDrawRound(prev => Math.min(10, prev + 1))}
-                    className="py-1 px-1.5 rounded bg-slate-800 text-[10px] text-slate-300 font-bold hover:bg-slate-700"
-                    title="다음 라운드로 +1"
-                  >
-                    +1
-                  </button>
-                </div>
+            {/* Presets Group 1: 본 행사 사전 셋팅 상 (3종) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-amber-400" />
+                  <span>사전 셋팅 공식 상 (3종)</span>
+                </span>
+                <span className="text-[9px] text-slate-400">클릭 시 자동 세팅</span>
               </div>
-              <div className="col-span-2">
-                <label className="text-[10px] text-slate-400 block mb-1">상품명</label>
-                <input
-                  type="text"
-                  value={drawPrizeName}
-                  onChange={(e) => setDrawPrizeName(e.target.value)}
-                  placeholder="추첨 상품명 입력"
-                  className="w-full py-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs"
-                />
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  {
+                    round: 1,
+                    name: '베스트 칭찬상 : 스타벅스 상품권 2만원권',
+                    subtitle: '칭찬을 가장 많이 받은 사람',
+                    tag: '👏 칭찬 최다 수신'
+                  },
+                  {
+                    round: 2,
+                    name: '베스트 칭찬러 : 스타벅스 상품권 2만원권',
+                    subtitle: '칭찬을 가장 많이 한 사람',
+                    tag: '💌 칭찬 최다 발신'
+                  },
+                  {
+                    round: 3,
+                    name: '행운상 : 스타벅스 상품권 2만원권',
+                    subtitle: '실시간 행운 난수 추첨',
+                    tag: '🍀 행운 난수 추첨'
+                  }
+                ].map((preset) => {
+                  const existingDraw = draws.find(d => !d.isVoided && d.roundNumber === preset.round);
+                  const isSelected = drawRound === preset.round && drawPrizeName === preset.name;
+                  return (
+                    <button
+                      key={preset.round}
+                      type="button"
+                      onClick={() => {
+                        setDrawRound(preset.round);
+                        setDrawPrizeName(preset.name);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? 'bg-amber-500/20 text-white border-amber-400 shadow-sm shadow-amber-500/20'
+                          : 'bg-slate-900/80 hover:bg-slate-800/90 text-slate-300 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          isSelected ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-amber-400'
+                        }`}>
+                          R{preset.round}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold truncate">{preset.name}</div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                            <span className="text-amber-300/90 font-medium">{preset.tag}</span>
+                            <span>·</span>
+                            <span>{preset.subtitle}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {existingDraw ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap">
+                          ✓ {existingDraw.winnerName}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 whitespace-nowrap">미추첨</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Quick Prize Presets */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] text-slate-400">상품 프리셋 빠른 선택:</span>
+            {/* Presets Group 2: 테스트 추첨용 사전 셋팅 (1, 2번) */}
+            <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                  <span>테스트 추첨 셋팅 (1~2번)</span>
+                </span>
+                <span className="text-[9px] text-sky-400/80">사전 테스트 / 리허설용</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { round: 1, name: '아이패드 에어 11 M4 256GB', tag: '테스트 1' },
+                  { round: 2, name: '애플 맥북 프로 14 M5', tag: '테스트 2' },
+                ].map((preset) => {
+                  const isSelected = drawRound === preset.round && drawPrizeName === preset.name;
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setDrawRound(preset.round);
+                        setDrawPrizeName(preset.name);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                        isSelected
+                          ? 'bg-sky-500/20 text-white border-sky-400 shadow-sm shadow-sky-500/20'
+                          : 'bg-slate-900/80 hover:bg-slate-800/90 text-slate-300 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] px-1 rounded bg-sky-500/20 text-sky-300 font-bold">
+                          {preset.tag}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono">Round {preset.round}</span>
+                      </div>
+                      <span className="text-xs font-bold leading-tight line-clamp-1">{preset.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Add Next Round / Custom Round Setup */}
+            <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-300">이후 라운드 추가 및 수동 지정</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const validRounds = draws.filter(d => !d.isVoided).map(d => d.roundNumber);
+                    const maxRound = validRounds.length > 0 ? Math.max(3, ...validRounds) : Math.max(3, drawRound);
+                    const nextR = maxRound + 1;
+                    setDrawRound(nextR);
+                    setDrawPrizeName(`행운상 ${nextR - 2}차 : 스타벅스 상품권 2만원권`);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold flex items-center gap-1 transition-all"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>+ 다음 라운드 추가</span>
+                </button>
+              </div>
+
+              {/* Quick Template Chips */}
               <div className="flex flex-wrap gap-1">
                 {[
-                  { round: 1, name: '1등: 소니 노이즈캔슬링 헤드폰' },
-                  { round: 2, name: '2등: 신세계 상품권 10만원권' },
-                  { round: 3, name: '3등: 배달의민족 상품권 5만원권' },
-                  { round: 4, name: '특별상: 스타벅스 e-카드 3만원권' },
-                  { round: 5, name: '행운상: 올리브영 기프트카드 2만원권' },
-                ].map((preset) => (
+                  '행운상 2차 : 스타벅스 상품권 2만원권',
+                  '행운상 3차 : 스타벅스 상품권 2만원권',
+                  '특별상 : 스타벅스 상품권 2만원권',
+                  '깜짝 행운상 : 스타벅스 상품권 2만원권'
+                ].map((chip) => (
                   <button
-                    key={preset.name}
+                    key={chip}
                     type="button"
                     onClick={() => {
-                      setDrawRound(preset.round);
-                      setDrawPrizeName(preset.name);
+                      setDrawPrizeName(chip);
                     }}
-                    className={`text-[10px] px-2 py-0.5 rounded-md border transition-all ${
-                      drawPrizeName === preset.name
+                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-all ${
+                      drawPrizeName === chip
                         ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
                         : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
                     }`}
                   >
-                    {preset.name.split(':')[0]}
+                    {chip.split(':')[0]}
                   </button>
                 ))}
               </div>
+
+              {/* Editable Round & Prize inputs */}
+              <div className="grid grid-cols-3 gap-2 mt-0.5">
+                <div>
+                  <label className="text-[9px] text-slate-400 block mb-0.5">라운드</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={drawRound}
+                      onChange={(e) => setDrawRound(Number(e.target.value))}
+                      className="w-full py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setDrawRound(prev => Math.min(20, prev + 1))}
+                      className="py-1 px-1.5 rounded bg-slate-800 text-[10px] text-slate-300 font-bold hover:bg-slate-700"
+                      title="라운드 +1"
+                    >
+                      +1
+                    </button>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[9px] text-slate-400 block mb-0.5">상품명</label>
+                  <input
+                    type="text"
+                    value={drawPrizeName}
+                    onChange={(e) => setDrawPrizeName(e.target.value)}
+                    placeholder="추첨 상품명 입력"
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-medium"
+                  />
+                </div>
+              </div>
             </div>
 
+            {/* Execute Draw CTA Button */}
             <button
               onClick={() => setShowConfirmModal('execute_draw')}
               disabled={isProcessing}
-              className="w-full py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:opacity-95 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20"
+              className="w-full py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:opacity-95 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 mt-1"
             >
               <Gift className="w-4 h-4" />
-              <span>Round {drawRound} 서버 난수 추첨 실행</span>
+              <span>Round {drawRound} {drawPrizeName.includes('베스트') ? '선정 및 확정' : '추첨 실행'}</span>
             </button>
             <p className="text-[10px] text-slate-500">
               * CSPRNG 난수 알고리즘으로 이전 라운드 당첨자는 자동 제외(1인 1당첨)됩니다.
