@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getSessionFromRequest } from '@/lib/auth/session';
+import { INITIAL_NOTES } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -73,6 +74,19 @@ export async function GET(request: Request) {
             content: h.content,
             updated_at: h.created_at
           }));
+      }
+    }
+
+    if (rawNotes.length === 0) {
+      const seedNotes = INITIAL_NOTES.filter(n => n.userId === targetUserId);
+      if (seedNotes.length > 0) {
+        rawNotes = seedNotes.map(n => ({
+          id: n.id,
+          user_id: n.userId,
+          target_user_id: n.targetUserId,
+          content: n.content,
+          updated_at: n.updatedAt
+        }));
       }
     }
 

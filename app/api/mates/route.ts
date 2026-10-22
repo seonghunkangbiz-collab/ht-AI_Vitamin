@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getSessionFromRequest } from '@/lib/auth/session';
+import { INITIAL_MATE_ASSIGNMENTS } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,7 +64,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: outErr.message }, { status: 500 });
     }
 
-    const outboundTargetIds = (outboundAssignments || []).map(a => a.target_user_id);
+    let outboundTargetIds = (outboundAssignments || []).map(a => a.target_user_id);
+    if (outboundTargetIds.length === 0) {
+      outboundTargetIds = INITIAL_MATE_ASSIGNMENTS.filter(a => a.userId === targetUserId).map(a => a.targetUserId);
+    }
+
     let outboundMates: any[] = [];
     if (outboundTargetIds.length > 0) {
       const { data: mates } = await supabase
@@ -82,7 +87,11 @@ export async function GET(request: Request) {
         .select('user_id')
         .eq('target_user_id', targetUserId);
 
-      const inboundObserverIds = (inboundAssignments || []).map(a => a.user_id);
+      let inboundObserverIds = (inboundAssignments || []).map(a => a.user_id);
+      if (inboundObserverIds.length === 0) {
+        inboundObserverIds = INITIAL_MATE_ASSIGNMENTS.filter(a => a.targetUserId === targetUserId).map(a => a.userId);
+      }
+
       if (inboundObserverIds.length > 0) {
         const { data: observers } = await supabase
           .from('users')

@@ -36,7 +36,8 @@ export function getSupabaseServerClient(options?: { requireSecret?: boolean }): 
   }
 
   if (!serverClientInstance) {
-    serverClientInstance = createClient(supabaseUrl!, publishableKey!, {
+    const keyToUse = hasSupabaseSecretKey() ? secretKey! : publishableKey!;
+    serverClientInstance = createClient(supabaseUrl!, keyToUse, {
       auth: {
         persistSession: false
       }
