@@ -583,24 +583,26 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {/* Mystery Mate Assignment Button */}
+          {/* Mystery Mate Assignment Button (Locked for Production Safety) */}
           <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-card flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                <Shuffle className="w-4 h-4 text-sky-600" />
-                Mystery Mate 타팀 우선 배정
+                <Lock className="w-4 h-4 text-emerald-600" />
+                Mystery Mate 배정 (운영 보호 잠금)
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium">1인당 2명 자동매칭</span>
+              <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">운영 중 안전 잠금</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              HT사업본부 대상 타 부서 임직원을 우선하여 Mystery Mate 2명을 배정합니다.
+              현재 참여 임직원들의 메이트 배정, 롤링페이퍼 칭찬(Wall), 개인 메모(Memo)가 안전하게 보호되고 있습니다. 기존 데이터를 보호하기 위해 셔플 배정은 안전 잠금 처리되어 있습니다.
             </p>
             <button
-              onClick={() => setShowConfirmModal(true)}
-              className="w-full py-3 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
+              onClick={() => {
+                alert('현재 행사 운영 중이므로 기존 참여자들의 메이트 배정, 작성된 칭찬 메시지, 개인 메모 데이터의 영구 보존을 위해 메이트 재배정이 안전 잠금되어 있습니다.\n\n개인 화면 데이터는 100% 안전하게 보호 중입니다.');
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-not-allowed"
             >
-              <Shuffle className="w-4 h-4" />
-              <span>Mystery Mate 2명 셔플 배정 실행</span>
+              <Lock className="w-4 h-4 text-slate-500" />
+              <span>메이트 배정 안전 잠금 중 (기존 데이터 보존)</span>
             </button>
           </div>
 

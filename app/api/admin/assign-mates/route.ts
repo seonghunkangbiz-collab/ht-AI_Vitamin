@@ -30,7 +30,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '배정 가능한 사용자가 2명 이상이어야 합니다.' }, { status: 400 });
     }
 
-    // Delete existing mate assignments from Supabase
+    // Safety check: Prevent accidental deletion of production mate assignments
+    let forceOverwrite = false;
+    try {
+      const body = await request.json();
+      forceOverwrite = Boolean(body?.forceOverwrite);
+    } catch {
+      // Body may be empty on standard calls
+    }
+
+    const { count: existingCount } = await supabase
+      .from('mate_assignments')
+      .select('*', { count: 'exact', head: true });
+
+    if (existingCount && existingCount > 0 && !forceOverwrite) {
+      return NextResponse.json({
+        error: 'LOCKED: 이미 운영 중인 메이트 배정 데이터가 존재합니다. 기존 운영 데이터(메이트 배정, 롤링페이퍼, 메모)의 영구 보존을 위해 재배정이 잠겨 있습니다.',
+        isLocked: true,
+        count: existingCount
+      }, { status: 409 });
+    }
+
+    // Delete existing mate assignments from Supabase only if explicitly unlocked
     await supabase.from('mate_assignments').delete().neq('id', 'keep-all-placeholder');
 
     const newAssignments: Array<{ id: string; user_id: string; target_user_id: string; assigned_at: string }> = [];

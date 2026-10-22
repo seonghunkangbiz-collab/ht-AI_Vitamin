@@ -920,13 +920,16 @@ export default function OperatorPanel({
               </p>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
                 <div>• 진행 순서: <strong className="text-sky-400">Opening</strong>으로 복귀</div>
-                <div>• 참석자 체크인: <strong className="text-white">0명</strong>으로 리셋</div>
-                <div>• 럭키드로우 추첨: <strong className="text-white">당첨 기록 삭제</strong></div>
-                <div>• 메이트 공개: <strong className="text-white">모두 미공개</strong>로 리셋</div>
-                <div>• 실시간 응원/리액션: <strong className="text-white">초기화</strong></div>
+                <div>• 당일 체크인: <strong className="text-white">0명</strong>으로 리셋</div>
+                <div>• 럭키드로우: <strong className="text-white">추첨 기록만 초기화</strong></div>
+                <div>• 무대 화면: <strong className="text-white">공개 단계 0</strong>으로 리셋</div>
+                <div>• 실시간 응원/피드: <strong className="text-white">초기화</strong></div>
               </div>
+              <p className="text-[11px] text-emerald-400 font-medium">
+                ✓ <strong>개인 화면 데이터 보존:</strong> 기존 메이트 배정(Mate), 롤링페이퍼(Wall), 칭찬 메시지, 개인 메모(Memo) 데이터는 100% 안전하게 유지되며 절대 삭제되지 않습니다.
+              </p>
               <p className="text-[11px] text-amber-300">
-                * 테스트 진행 후 본 행사 시작 직전에 깨끗한 초기 상태로 세팅할 때 사용합니다.
+                * 테스트 진행 후 본 행사 시작 직전에 무대 송출 및 당일 기록만 깨끗한 초기 상태로 세팅할 때 사용합니다.
               </p>
             </div>
             <div className="flex gap-2">

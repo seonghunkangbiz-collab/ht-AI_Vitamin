@@ -16,6 +16,27 @@ export async function POST(request: Request) {
   try {
     const supabase = getSupabaseServerClient();
 
+    // Safety check: Prevent accidental overwriting of production praises, mates, notes
+    let forceOverwrite = false;
+    try {
+      const body = await request.json();
+      forceOverwrite = Boolean(body?.forceOverwrite);
+    } catch {
+      // Body may be empty
+    }
+
+    const { count: praiseCount } = await supabase
+      .from('praise_messages')
+      .select('*', { count: 'exact', head: true });
+
+    if (praiseCount && praiseCount > 0 && !forceOverwrite) {
+      return NextResponse.json({
+        error: 'LOCKED: 이미 실제 칭찬/방명록 데이터가 존재합니다. 기존 운영 데이터를 보호하기 위해 초기 데이터 재등록이 차단되었습니다.',
+        isLocked: true,
+        praiseCount
+      }, { status: 409 });
+    }
+
     // 1. Seed Users
     await supabase.from('users').upsert(INITIAL_USERS);
 
