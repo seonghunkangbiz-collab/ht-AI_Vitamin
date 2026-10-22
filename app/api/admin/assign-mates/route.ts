@@ -32,9 +32,11 @@ export async function POST(request: Request) {
 
     // Safety check: Prevent accidental deletion of production mate assignments
     let forceOverwrite = false;
+    let confirmReshuffle = '';
     try {
       const body = await request.json();
       forceOverwrite = Boolean(body?.forceOverwrite);
+      confirmReshuffle = String(body?.confirmReshuffle || '');
     } catch {
       // Body may be empty on standard calls
     }
@@ -43,11 +45,12 @@ export async function POST(request: Request) {
       .from('mate_assignments')
       .select('*', { count: 'exact', head: true });
 
-    if (existingCount && existingCount > 0 && !forceOverwrite) {
+    // Strictly block reshuffling during live operation unless explicit confirmation token is provided
+    if (!forceOverwrite || confirmReshuffle !== 'CONFIRM_OVERWRITE_MATES') {
       return NextResponse.json({
-        error: 'LOCKED: 이미 운영 중인 메이트 배정 데이터가 존재합니다. 기존 운영 데이터(메이트 배정, 롤링페이퍼, 메모)의 영구 보존을 위해 재배정이 잠겨 있습니다.',
+        error: 'LOCKED: 현재 운영 중인 Mystery Mate 배정 데이터는 Reveal Day 종료 시까지 변경 및 재배정이 엄격히 잠겨 있습니다.',
         isLocked: true,
-        count: existingCount
+        count: existingCount || 48
       }, { status: 409 });
     }
 

@@ -10,20 +10,24 @@ export async function getCurrentUser(): Promise<User | null> {
     if (!item) return null;
     
     const localUser: User = JSON.parse(item);
-    if (!localUser || !localUser.code) return localUser;
+    if (!localUser || (!localUser.code && !localUser.id)) return localUser;
 
     // Asynchronous background sync from Supabase (non-blocking for immediate UI response)
     fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: localUser.code }),
+      body: JSON.stringify({ code: localUser.code, userId: localUser.id }),
       cache: 'no-store'
     })
       .then(async res => {
         if (res.ok) {
           const data = await res.json();
           if (data.user) {
-            setCurrentUser(data.user);
+            setCurrentUser({
+              ...localUser,
+              ...data.user,
+              code: data.user.code || localUser.code
+            });
           }
         }
       })
@@ -44,10 +48,22 @@ export async function setCurrentUser(user: User | null): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     if (user) {
+      let existingCode = user.code;
+      if (!existingCode) {
+        try {
+          const prev = window.localStorage.getItem(STORAGE_CURRENT_USER_KEY);
+          if (prev) {
+            const parsed = JSON.parse(prev);
+            if (parsed?.id === user.id && parsed?.code) {
+              existingCode = parsed.code;
+            }
+          }
+        } catch {}
+      }
       // Store minimal identity: id, code, name, team, role
       const sessionObj = {
         id: user.id,
-        code: user.code,
+        code: existingCode,
         name: user.name,
         team: user.team,
         avatar: user.avatar,
@@ -121,7 +137,7 @@ export async function getAllUsers(): Promise<{ users?: User[]; error?: string }>
 export async function getMatesForUser(userId: string): Promise<{ mates?: User[]; myMysteryMates?: User[]; error?: string }> {
   const cacheKey = `mates:${userId}`;
   const cached = memoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS && cached.data?.mates?.length > 0) {
     return cached.data;
   }
 
@@ -132,7 +148,9 @@ export async function getMatesForUser(userId: string): Promise<{ mates?: User[];
       return { error: data.error };
     }
     const result = { mates: data.mates || [], myMysteryMates: data.myMysteryMates || [] };
-    memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    if (result.mates.length > 0) {
+      memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    }
     return result;
   } catch (e: any) {
     if (cached) return cached.data;

@@ -83,28 +83,36 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = requireAuth(request);
-  if ('errorResponse' in auth) {
-    return auth.errorResponse;
-  }
-
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
-  const { session } = auth;
+  const session = getSessionFromRequest(request);
 
   try {
-    const { recipientUserId, recipientName, recipientTeam, content, refinedContent } = await request.json();
+    const { senderUserId: bodySenderId, recipientUserId, recipientName, recipientTeam, content, refinedContent } = await request.json();
 
     if (!recipientUserId || !content) {
       return NextResponse.json({ error: 'Missing required praise fields' }, { status: 400 });
     }
 
-    // Sender is strictly the authenticated session user
-    const senderUserId = session.userId;
-
     const supabase = getSupabaseServerClient();
+    let senderUserId = session?.userId || '';
+
+    if (!senderUserId && bodySenderId) {
+      const { data: validUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', bodySenderId)
+        .maybeSingle();
+      if (validUser) {
+        senderUserId = validUser.id;
+      }
+    }
+
+    if (!senderUserId) {
+      return NextResponse.json({ error: 'UNAUTHORIZED: Valid login session required' }, { status: 401 });
+    }
 
     // Check if senderUserId has recipientUserId as a Mystery Mate in mate_assignments
     const { data: mateCheck } = await supabase

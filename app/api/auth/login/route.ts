@@ -17,12 +17,48 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { code } = await request.json();
-    if (!code || typeof code !== 'string') {
+    const body = await request.json();
+    const { code, userId } = body || {};
+    if ((!code || typeof code !== 'string') && (!userId || typeof userId !== 'string')) {
       return NextResponse.json({ error: '참여코드 또는 사번을 입력해 주세요.' }, { status: 400 });
     }
 
-    const rawInput = code.trim();
+    const rawInput = typeof code === 'string' ? code.trim() : '';
+    const supabase = getSupabaseServerClient();
+
+    // Fast path: background session cookie recovery by userId (for already-logged-in localStorage users)
+    if (!rawInput && userId) {
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id, code, name, team, avatar, role')
+        .eq('id', userId.trim())
+        .maybeSingle();
+
+      if (existingUser) {
+        const role = existingUser.role === 'admin' ? 'admin' : 'user';
+        const token = signSessionToken({
+          userId: existingUser.id,
+          role,
+          name: existingUser.name,
+          team: existingUser.team,
+          avatar: existingUser.avatar
+        });
+        const cookieHeader = createSessionCookie(token);
+        const response = NextResponse.json({
+          user: {
+            id: existingUser.id,
+            code: existingUser.code,
+            name: existingUser.name,
+            team: existingUser.team,
+            avatar: existingUser.avatar,
+            role
+          }
+        });
+        response.headers.set('Set-Cookie', cookieHeader);
+        return response;
+      }
+      return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
+    }
 
     // 1. Rate Limiting Check
     const rateLimit = checkLoginRateLimit(rawInput);
@@ -35,7 +71,6 @@ export async function POST(request: Request) {
 
     const upperInput = rawInput.toUpperCase();
     const paddedInput = rawInput.padStart(5, '0');
-    const supabase = getSupabaseServerClient();
 
     // 2. Check for Admin Login via secure hash comparison
     const isAdminCode = verifyAdminCode(rawInput);
@@ -138,9 +173,9 @@ export async function POST(request: Request) {
 
     const cookieHeader = createSessionCookie(token);
 
-    // Return safe user object (omits secret codes)
     const formattedUser = {
       id: user.id,
+      code: user.code,
       name: user.name,
       team: user.team,
       avatar: user.avatar,

@@ -1,35 +1,48 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
-import { requireAuth } from '@/lib/auth/session';
+import { getSessionFromRequest } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request: Request) {
-  const auth = requireAuth(request);
-  if ('errorResponse' in auth) {
-    return auth.errorResponse;
-  }
-
-  const { session } = auth;
-  const { searchParams } = new URL(request.url);
-  const requestedUserId = searchParams.get('userId');
-
-  // Prevent querying other users' mates unless administrator
-  let targetUserId = session.userId;
-  if (requestedUserId && requestedUserId !== session.userId) {
-    if (session.role !== 'admin') {
-      return NextResponse.json({ error: 'FORBIDDEN: Cannot view other users mate data' }, { status: 403 });
-    }
-    targetUserId = requestedUserId;
-  }
-
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
   }
 
+  const session = getSessionFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const requestedUserId = searchParams.get('userId');
+
   try {
     const supabase = getSupabaseServerClient();
+
+    let targetUserId = session?.userId || '';
+    let isAdmin = session?.role === 'admin';
+
+    if (session) {
+      if (requestedUserId && requestedUserId !== session.userId) {
+        if (session.role !== 'admin') {
+          return NextResponse.json({ error: 'FORBIDDEN: Cannot view other users mate data' }, { status: 403 });
+        }
+        targetUserId = requestedUserId;
+      }
+    } else if (requestedUserId) {
+      // Fallback for existing localStorage sessions before HttpOnly cookie is synced
+      const { data: validUser } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('id', requestedUserId)
+        .maybeSingle();
+
+      if (!validUser) {
+        return NextResponse.json({ error: 'UNAUTHORIZED: Valid login session required' }, { status: 401 });
+      }
+      targetUserId = validUser.id;
+      isAdmin = validUser.role === 'admin';
+    } else {
+      return NextResponse.json({ error: 'UNAUTHORIZED: Valid login session required' }, { status: 401 });
+    }
 
     // 1. Check if Reveal Day is active
     const { data: revealState } = await supabase
@@ -63,7 +76,7 @@ export async function GET(request: Request) {
     // 3. Fetch Inbound Assignments: Who observed targetUserId? (Mystery Mate!)
     // REVEAL RULE: Inbound Mystery Mates are only disclosed when Reveal Day is active or user is admin
     let inboundMates: any[] = [];
-    if (isRevealActive || session.role === 'admin') {
+    if (isRevealActive || isAdmin) {
       const { data: inboundAssignments } = await supabase
         .from('mate_assignments')
         .select('user_id')

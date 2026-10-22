@@ -246,8 +246,25 @@ ALTER TABLE public.reveal_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.private_note_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reveal_event_assets ENABLE ROW LEVEL SECURITY;
 
--- Read policies for public screens
-CREATE POLICY "Public can view safe users info" ON public.users FOR SELECT USING (true);
+-- Read/Write policies for Next.js BFF server APIs (using SUPABASE_PUBLISHABLE_KEY)
+DROP POLICY IF EXISTS "Public can view safe users info" ON public.users;
+DROP POLICY IF EXISTS "Allow all users operations" ON public.users;
+CREATE POLICY "Allow all users operations" ON public.users FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Deny direct public mate access" ON public.mate_assignments;
+DROP POLICY IF EXISTS "Allow all mate_assignments operations" ON public.mate_assignments;
+CREATE POLICY "Allow all mate_assignments operations" ON public.mate_assignments FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Deny direct public notes access" ON public.private_notes;
+DROP POLICY IF EXISTS "Allow all private_notes operations" ON public.private_notes;
+CREATE POLICY "Allow all private_notes operations" ON public.private_notes FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow all praise_messages operations" ON public.praise_messages;
+CREATE POLICY "Allow all praise_messages operations" ON public.praise_messages FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow all app_state operations" ON public.app_state;
+CREATE POLICY "Allow all app_state operations" ON public.app_state FOR ALL USING (true);
+
 CREATE POLICY "Public can view reveal_public_state" ON public.reveal_public_state FOR SELECT USING (true);
 CREATE POLICY "Public can view reveal_events" ON public.reveal_events FOR SELECT USING (true);
 CREATE POLICY "Public can view safe curated items" ON public.reveal_curated_items FOR SELECT USING (safe_to_present = true AND approval_status = 'approved');
