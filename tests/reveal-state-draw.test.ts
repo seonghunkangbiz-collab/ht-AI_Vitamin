@@ -4,6 +4,7 @@ import { isBeforeCutoff, computeSnapshotHash } from '@/lib/reveal-day/snapshot';
 import { selectWinnerWithCSPRNG, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/reveal-day/draw';
 import { getUserTitle, formatNameWithTitle } from '@/lib/reveal-day/titles';
 import { getRehearsalSnapshot, getRehearsalPublicState } from '@/lib/reveal-day/rehearsal-data';
+import { INITIAL_USERS } from '@/lib/seedData';
 import type { RevealPublicState } from '@/lib/reveal-day/types';
 
 // Mock DB store for testing state transitions and version conflicts
@@ -331,4 +332,42 @@ test('Test 23: MC/진행자 Kang Seong-hun excluded from Best Praise awards', ()
   assert.equal(eligibleForAward.some(c => c.name === '강성훈'), false, 'Kang Seong-hun must not be eligible for Best Praise');
   assert.equal(eligibleForAward.length, 2);
 });
+
+test('Test 24: Reveal Day check-in & login support for Lee Hyun-seo (50007) and Choi Ji-hoon (50008)', () => {
+  const hyunseo = INITIAL_USERS.find(u => u.employeeNumber === '50007');
+  const jihoon = INITIAL_USERS.find(u => u.employeeNumber === '50008');
+
+  assert.ok(hyunseo, 'Lee Hyun-seo (50007) must exist in INITIAL_USERS');
+  assert.equal(hyunseo.name, '이현서');
+  assert.equal(hyunseo.code, 'VIT-50007');
+  assert.equal(hyunseo.team, '반도체Global사업개발팀');
+  assert.equal(getUserTitle(hyunseo.name), '매니저');
+
+  assert.ok(jihoon, 'Choi Ji-hoon (50008) must exist in INITIAL_USERS');
+  assert.equal(jihoon.name, '최지훈');
+  assert.equal(jihoon.code, 'VIT-50008');
+  assert.equal(jihoon.team, '반도체Global사업개발팀');
+  assert.equal(getUserTitle(jihoon.name), '매니저');
+
+  // Verify lookup by employee number, code, and name
+  const findByInput = (input: string) => {
+    const raw = input.trim();
+    const upper = raw.toUpperCase();
+    const padded = raw.padStart(5, '0');
+    return INITIAL_USERS.find(
+      u => (u.code && u.code.toUpperCase() === upper) ||
+           (u.employeeNumber && (u.employeeNumber === raw || u.employeeNumber === padded)) ||
+           (u.name && u.name.trim() === raw)
+    );
+  };
+
+  assert.equal(findByInput('50007')?.id, 'user-25');
+  assert.equal(findByInput('VIT-50007')?.id, 'user-25');
+  assert.equal(findByInput('이현서')?.id, 'user-25');
+
+  assert.equal(findByInput('50008')?.id, 'user-26');
+  assert.equal(findByInput('VIT-50008')?.id, 'user-26');
+  assert.equal(findByInput('최지훈')?.id, 'user-26');
+});
+
 

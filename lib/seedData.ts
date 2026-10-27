@@ -25,6 +25,8 @@ export const INITIAL_USERS: User[] = [
   { id: 'user-22', code: 'VIT-4G6V5', name: '강태형', team: 'AX 사업개발팀', avatar: '👨‍🔬', employeeNumber: '10326' },
   { id: 'user-23', code: 'VIT-6H9W8', name: '조진영', team: 'AX 사업개발팀', avatar: '👩‍💼', employeeNumber: '06443' },
   { id: 'user-24', code: 'VIT-9I2X1', name: '허성훈', team: 'AX 사업개발팀', avatar: '👨‍💼', employeeNumber: '09568' },
+  { id: 'user-25', code: 'VIT-50007', name: '이현서', team: '반도체Global사업개발팀', avatar: '👩‍💼', employeeNumber: '50007' },
+  { id: 'user-26', code: 'VIT-50008', name: '최지훈', team: '반도체Global사업개발팀', avatar: '👨‍💼', employeeNumber: '50008' },
   // 관리자 계정 (보안: 실제 인증 코드는 환경변수 해시로 서버에서 검증되며 소스코드에 노출되지 않음)
   { id: 'admin-01', code: 'SYSTEM-MANAGED-ADMIN', name: 'HT사업본부 관리자', team: '운영팀', avatar: '👑', role: 'admin' },
 ];

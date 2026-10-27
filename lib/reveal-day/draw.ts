@@ -23,8 +23,8 @@ export interface CandidateUser {
  * (반도체Global사업개발팀 이현서, 최지훈)
  */
 export const ADDITIONAL_LUCKY_DRAW_MEMBERS: CandidateUser[] = [
-  { id: 'extra-user-01', name: '이현서', team: '반도체Global사업개발팀' },
-  { id: 'extra-user-02', name: '최지훈', team: '반도체Global사업개발팀' },
+  { id: 'user-25', name: '이현서', team: '반도체Global사업개발팀' },
+  { id: 'user-26', name: '최지훈', team: '반도체Global사업개발팀' },
 ];
 
 /**

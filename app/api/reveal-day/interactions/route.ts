@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getApprovedCapsuleForUser } from '@/lib/reveal-day/capsule';
+import { INITIAL_USERS } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -121,6 +122,25 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     if (action === 'checkin') {
+      // Ensure user exists in users table to satisfy foreign key constraint
+      const { data: userExists } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', session.userId)
+        .maybeSingle();
+
+      if (!userExists) {
+        const seedUser = INITIAL_USERS.find(u => u.id === session.userId);
+        await supabase.from('users').upsert({
+          id: session.userId,
+          code: seedUser?.code || `VIT-${session.userId}`,
+          name: session.name || seedUser?.name || '참여자',
+          team: session.team || seedUser?.team || '',
+          avatar: session.avatar || seedUser?.avatar || '👤',
+          role: 'user'
+        });
+      }
+
       // Upsert interaction
       const { error: insErr } = await supabase
         .from('reveal_interactions')

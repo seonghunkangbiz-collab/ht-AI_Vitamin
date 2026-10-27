@@ -122,7 +122,8 @@ export async function POST(request: Request) {
     // 3. Regular Participant Login: Find in seed mapping or Supabase
     const seedUser = INITIAL_USERS.find(
       u => (u.code && u.code.toUpperCase() === upperInput) ||
-           (u.employeeNumber && (u.employeeNumber === rawInput || u.employeeNumber === paddedInput))
+           (u.employeeNumber && (u.employeeNumber === rawInput || u.employeeNumber === paddedInput)) ||
+           (u.name && u.name.trim() === rawInput)
     );
 
     const queryCode = seedUser?.code ? seedUser.code : upperInput;
@@ -142,17 +143,40 @@ export async function POST(request: Request) {
       user = userById;
     }
 
-    // Auto-seed initial users if table is empty
+    // Auto-upsert specific seed user if found in INITIAL_USERS but not yet registered in DB
+    if (!user && seedUser) {
+      const { data: upsertedUser } = await supabase
+        .from('users')
+        .upsert({
+          id: seedUser.id,
+          code: seedUser.code,
+          name: seedUser.name,
+          team: seedUser.team,
+          avatar: seedUser.avatar,
+          role: 'user'
+        })
+        .select('id, code, name, team, avatar, role')
+        .maybeSingle();
+
+      user = upsertedUser || {
+        id: seedUser.id,
+        code: seedUser.code,
+        name: seedUser.name,
+        team: seedUser.team,
+        avatar: seedUser.avatar,
+        role: 'user'
+      };
+    }
+
+    // Fallback: check by name if not found by code
     if (!user) {
-      const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-      if (count === 0) {
-        await supabase.from('users').upsert(INITIAL_USERS);
-        const retry = await supabase
-          .from('users')
-          .select('id, code, name, team, avatar, role')
-          .eq('code', queryCode)
-          .maybeSingle();
-        user = retry.data;
+      const { data: userByName } = await supabase
+        .from('users')
+        .select('id, code, name, team, avatar, role')
+        .eq('name', rawInput)
+        .maybeSingle();
+      if (userByName) {
+        user = userByName;
       }
     }
 

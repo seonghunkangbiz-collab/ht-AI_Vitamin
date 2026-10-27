@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Auto-seed initial 24 users ONLY if database is completely empty (0 rows)
+    // Auto-seed or sync initial users
     let rawUsers: any[] = (users || []) as any[];
     if (rawUsers.length === 0) {
       await supabase.from('users').upsert(INITIAL_USERS);
@@ -34,6 +34,18 @@ export async function GET(request: Request) {
         .select('id, name, team, avatar, role' + (isAdmin ? ', code' : ''))
         .order('name', { ascending: true });
       rawUsers = (reFetch.data || []) as any[];
+    } else {
+      // Check if new seed members (e.g. user-25, user-26) need to be synced
+      const existingIds = new Set(rawUsers.map(u => u.id));
+      const missingUsers = INITIAL_USERS.filter(u => !existingIds.has(u.id));
+      if (missingUsers.length > 0) {
+        await supabase.from('users').upsert(missingUsers);
+        const reFetch = await supabase
+          .from('users')
+          .select('id, name, team, avatar, role' + (isAdmin ? ', code' : ''))
+          .order('name', { ascending: true });
+        rawUsers = (reFetch.data || []) as any[];
+      }
     }
 
     // STRICT SANITIZATION: Never leak admin accounts or login credentials to regular users
