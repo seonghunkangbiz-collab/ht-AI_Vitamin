@@ -19,6 +19,15 @@ export interface CandidateUser {
 }
 
 /**
+ * 비타민 프로그램에는 미참여했으나 럭키드로우 추첨 대상자로 추가된 인원
+ * (반도체Global사업개발팀 이현서, 최지훈)
+ */
+export const ADDITIONAL_LUCKY_DRAW_MEMBERS: CandidateUser[] = [
+  { id: 'extra-user-01', name: '이현서', team: '반도체Global사업개발팀' },
+  { id: 'extra-user-02', name: '최지훈', team: '반도체Global사업개발팀' },
+];
+
+/**
  * Pure CSPRNG winner selection with exclusion and stable pool hashing
  */
 export function selectWinnerWithCSPRNG(candidates: CandidateUser[], excludeIds?: Set<string>): { winner: CandidateUser; selectedIndex: number; poolHash: string; poolSize: number } {
@@ -101,6 +110,13 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     candidates = REHEARSAL_USERS.map(u => ({ id: u.id, name: u.name, team: u.team }));
   }
 
+  // Ensure additional non-program lucky draw attendees (반도체Global사업개발팀 이현서, 최지훈) are included in candidate pool
+  ADDITIONAL_LUCKY_DRAW_MEMBERS.forEach(extra => {
+    if (!candidates.some(c => c.name === extra.name || c.id === extra.id)) {
+      candidates.push(extra);
+    }
+  });
+
   if (candidates.length === 0) {
     throw new Error('No eligible candidates found for draw.');
   }
@@ -129,8 +145,8 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     .digest('hex');
 
   // 5. Winner Selection:
-  // - 베스트 칭찬상: 칭찬을 가장 많이 받은 사람 (Most received praises)
-  // - 베스트 칭찬러: 칭찬을 가장 많이 한 사람 (Most sent praises)
+  // - 베스트 칭찬상: 칭찬을 가장 많이 받은 사람 (진행자 강성훈 제외)
+  // - 베스트 칭찬러: 칭찬을 가장 많이 한 사람 (진행자 강성훈 제외)
   // - 행운상 / 테스트 / 기타: Node CSPRNG (crypto.randomInt) 공정 난수 추첨
   let selectedIndex = 0;
   let winner = sortedCandidates[0];
@@ -157,13 +173,17 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
       });
     }
 
+    // 진행자(강성훈)는 베스트 칭찬상 수상 대상에서 제외
+    const awardEligible = sortedCandidates.filter(c => !c.name.includes('강성훈'));
+    const poolForAward = awardEligible.length > 0 ? awardEligible : sortedCandidates;
+
     let maxCount = -1;
-    sortedCandidates.forEach(c => {
+    poolForAward.forEach(c => {
       const cnt = countMap[c.id] || 0;
       if (cnt > maxCount) maxCount = cnt;
     });
 
-    const topCandidates = sortedCandidates.filter(c => (countMap[c.id] || 0) === maxCount);
+    const topCandidates = poolForAward.filter(c => (countMap[c.id] || 0) === maxCount);
     const chosenTopIdx = crypto.randomInt(0, topCandidates.length);
     winner = topCandidates[chosenTopIdx];
     selectedIndex = sortedCandidates.findIndex(c => c.id === winner.id);
@@ -186,13 +206,17 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
       });
     }
 
+    // 진행자(강성훈)는 베스트 칭찬러 수상 대상에서 제외
+    const awardEligible = sortedCandidates.filter(c => !c.name.includes('강성훈'));
+    const poolForAward = awardEligible.length > 0 ? awardEligible : sortedCandidates;
+
     let maxCount = -1;
-    sortedCandidates.forEach(c => {
+    poolForAward.forEach(c => {
       const cnt = countMap[c.id] || 0;
       if (cnt > maxCount) maxCount = cnt;
     });
 
-    const topCandidates = sortedCandidates.filter(c => (countMap[c.id] || 0) === maxCount);
+    const topCandidates = poolForAward.filter(c => (countMap[c.id] || 0) === maxCount);
     const chosenTopIdx = crypto.randomInt(0, topCandidates.length);
     winner = topCandidates[chosenTopIdx];
     selectedIndex = sortedCandidates.findIndex(c => c.id === winner.id);

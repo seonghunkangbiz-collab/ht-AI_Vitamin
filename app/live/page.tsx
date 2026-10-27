@@ -8,6 +8,7 @@ import { User, TimeCapsule } from '@/lib/types';
 import { getCurrentUser, setCurrentUser } from '@/lib/db';
 import { useRevealDayRealtime } from '@/hooks/useRevealDayRealtime';
 import { getSupabaseClient } from '@/lib/supabase';
+import { formatNameWithTitle } from '@/lib/reveal-day/titles';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -356,7 +357,7 @@ function LiveAttendeeContent() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{currentUserState.avatar || '👤'}</span>
                 <div>
-                  <div className="text-sm font-bold">{currentUserState.name} 님</div>
+                  <div className="text-sm font-bold">{formatNameWithTitle(currentUserState.name)}</div>
                   <div className="text-[11px] text-sky-200">{currentUserState.team}</div>
                 </div>
               </div>
@@ -460,7 +461,7 @@ function LiveAttendeeContent() {
                   <option value="">동료를 선택하세요</option>
                   {allUsers.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name} ({u.team})
+                      {formatNameWithTitle(u.name)} ({u.team})
                     </option>
                   ))}
                 </select>

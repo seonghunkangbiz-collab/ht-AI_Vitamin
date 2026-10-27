@@ -4,6 +4,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, Lock, Sparkles, UserCheck, ShieldCheck, Heart } from 'lucide-react';
 import { MatePairReveal, ReactionCounts } from '@/lib/reveal-day/types';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 
 interface MateRevealSegmentProps {
   pairs: MatePairReveal[];
@@ -122,7 +123,9 @@ export default function MateRevealSegment({
               </div>
               <h3 className="text-2xl font-black text-white flex items-center justify-center gap-1.5">
                 <span>{info.targetName}</span>
-                <span className="text-sm font-medium text-slate-400">님</span>
+                <span className="text-xs font-bold text-sky-300 bg-sky-950/80 border border-sky-400/30 px-2 py-0.5 rounded-full">
+                  {getUserTitle(info.targetName)}
+                </span>
               </h3>
               <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 2명의 비타민은?</p>
             </div>
@@ -183,8 +186,11 @@ export default function MateRevealSegment({
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.4 }}
                           >
-                            <div className="text-base font-black text-white">
-                              {observer.observerName} 님
+                            <div className="text-base font-black text-white flex items-center gap-1.5">
+                              <span>{observer.observerName}</span>
+                              <span className="text-[11px] font-bold text-amber-300 bg-amber-950/70 border border-amber-400/30 px-1.5 py-0.2 rounded-md">
+                                {getUserTitle(observer.observerName)}
+                              </span>
                             </div>
                             <div className="text-[11px] text-sky-300 font-medium">
                               {observer.observerTeam}

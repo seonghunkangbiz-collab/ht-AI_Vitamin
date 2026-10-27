@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabaseClient } from '@/lib/supabase';
 import { MessageSquare, Heart, Sparkles, Users, X, ChevronRight } from 'lucide-react';
 import { REACTION_EMOJIS, REACTION_LABELS } from './CheerOverlay';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 
 export interface FeedMessage {
   id: string;
@@ -209,6 +210,9 @@ export default function LiveFeedSidebar({
                       <div className="flex items-center gap-1.5 truncate">
                         <span className="text-xs font-black text-white truncate">
                           {item.senderName}
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/10 px-1 py-0.2 rounded border border-amber-400/20 shrink-0">
+                          {getUserTitle(item.senderName)}
                         </span>
                         {item.senderTeam && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 font-semibold truncate border border-sky-500/20">

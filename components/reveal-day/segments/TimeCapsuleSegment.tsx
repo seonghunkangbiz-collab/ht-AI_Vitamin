@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Heart, ChevronLeft, ChevronRight, Award, Quote, CheckCircle } from 'lucide-react';
 import { RevealTimeCapsuleItem } from '@/lib/reveal-day/types';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 
 interface TimeCapsuleSegmentProps {
   capsules: RevealTimeCapsuleItem[];
@@ -104,7 +105,10 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-2xl font-black text-white">{activeCapsule.recipientName} 님</h3>
+                    <h3 className="text-2xl font-black text-white">{activeCapsule.recipientName}</h3>
+                    <span className="text-xs font-bold text-sky-300 bg-sky-950/80 border border-sky-400/30 px-2.5 py-0.5 rounded-full">
+                      {getUserTitle(activeCapsule.recipientName)}
+                    </span>
                     <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                       <CheckCircle className="w-3 h-3" />
                       <span>검수 승인 완료</span>

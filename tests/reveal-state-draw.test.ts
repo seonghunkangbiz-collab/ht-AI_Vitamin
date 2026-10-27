@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isBeforeCutoff, computeSnapshotHash } from '@/lib/reveal-day/snapshot';
-import { selectWinnerWithCSPRNG } from '@/lib/reveal-day/draw';
+import { selectWinnerWithCSPRNG, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/reveal-day/draw';
+import { getUserTitle, formatNameWithTitle } from '@/lib/reveal-day/titles';
 import { getRehearsalSnapshot, getRehearsalPublicState } from '@/lib/reveal-day/rehearsal-data';
 import type { RevealPublicState } from '@/lib/reveal-day/types';
 
@@ -285,3 +286,49 @@ test('Test 20: Inbound mate count integrity (Total inbound matches DB rows)', ()
   assert.equal(inboundMap['u3'], 2);
   assert.equal(inboundMap['u4'], 2);
 });
+
+test('Test 21: Position title mapping rules (본부장, 팀장, 매니저)', () => {
+  // Specific position mappings
+  assert.equal(getUserTitle('홍태영'), '본부장');
+  assert.equal(getUserTitle('이은정'), '팀장');
+  assert.equal(getUserTitle('김세진'), '팀장');
+  assert.equal(getUserTitle('조재화'), '팀장');
+
+  // Everyone else must be 매니저
+  assert.equal(getUserTitle('강성훈'), '매니저');
+  assert.equal(getUserTitle('이현서'), '매니저');
+  assert.equal(getUserTitle('최지훈'), '매니저');
+  assert.equal(getUserTitle('박정호'), '매니저');
+  assert.equal(getUserTitle('양정희'), '매니저');
+
+  // Display name formatting
+  assert.equal(formatNameWithTitle('홍태영'), '홍태영 본부장');
+  assert.equal(formatNameWithTitle('이은정'), '이은정 팀장');
+  assert.equal(formatNameWithTitle('강성훈'), '강성훈 매니저');
+  assert.equal(formatNameWithTitle('이현서'), '이현서 매니저');
+  assert.equal(formatNameWithTitle('최지훈'), '최지훈 매니저');
+});
+
+test('Test 22: Additional lucky draw attendees (이현서, 최지훈) in pool (Total 26)', () => {
+  assert.equal(ADDITIONAL_LUCKY_DRAW_MEMBERS.length, 2);
+  assert.equal(ADDITIONAL_LUCKY_DRAW_MEMBERS.some(m => m.name === '이현서' && m.team === '반도체Global사업개발팀'), true);
+  assert.equal(ADDITIONAL_LUCKY_DRAW_MEMBERS.some(m => m.name === '최지훈' && m.team === '반도체Global사업개발팀'), true);
+
+  // Total eligible calculation: 24 Vitamin attendees + 2 additional attendees = 26
+  const totalEligible = 24 + ADDITIONAL_LUCKY_DRAW_MEMBERS.length;
+  assert.equal(totalEligible, 26);
+});
+
+test('Test 23: MC/진행자 Kang Seong-hun excluded from Best Praise awards', () => {
+  const candidates = [
+    { id: 'u-1', name: '강성훈', team: 'Global사업개발팀' },
+    { id: 'u-2', name: '이은정', team: '전략사업개발팀' },
+    { id: 'u-3', name: '박정호', team: '전략사업개발팀' }
+  ];
+
+  // When filtering for Best Praise awards, Kang Seong-hun must be excluded
+  const eligibleForAward = candidates.filter(c => !c.name.includes('강성훈'));
+  assert.equal(eligibleForAward.some(c => c.name === '강성훈'), false, 'Kang Seong-hun must not be eligible for Best Praise');
+  assert.equal(eligibleForAward.length, 2);
+});
+

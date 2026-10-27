@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { RevealSegment, RevealEvent, RevealPublicState, MatePairReveal, RevealDrawItem } from '@/lib/reveal-day/types';
 import { SEGMENT_METADATA, ORDERED_SEGMENTS } from '@/lib/reveal-day/state-machine';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 import { 
   Play, 
   ChevronRight, 
@@ -306,7 +307,7 @@ export default function OperatorPanel({
                   <Award className="w-3.5 h-3.5 text-amber-400" />
                   <span>사전 셋팅 공식 상 (3종)</span>
                 </span>
-                <span className="text-[9px] text-slate-400">선택 시 다음 순차 라운드로 지정</span>
+                <span className="text-[9px] text-amber-400/90 font-medium">진행자(강성훈) 제외 · 모수 26명(이현서, 최지훈 포함)</span>
               </div>
               <div className="grid grid-cols-1 gap-1.5">
                 {[
@@ -368,7 +369,7 @@ export default function OperatorPanel({
                       </div>
                       {isCompleted ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap">
-                          ✓ R{existingDraw.roundNumber} {existingDraw.winnerName}
+                          ✓ R{existingDraw.roundNumber} {existingDraw.winnerName} {getUserTitle(existingDraw.winnerName)}
                         </span>
                       ) : (
                         <span className="text-[10px] text-amber-400 font-semibold whitespace-nowrap">
@@ -428,7 +429,7 @@ export default function OperatorPanel({
                       <span className="text-xs font-bold leading-tight line-clamp-1">{preset.name}</span>
                       {isCompleted ? (
                         <div className="text-[9px] text-emerald-400 font-medium truncate">
-                          ✓ {existingDraw.winnerName} (모수 제외)
+                          ✓ {existingDraw.winnerName} {getUserTitle(existingDraw.winnerName)} (모수 제외)
                         </div>
                       ) : (
                         <div className="text-[9px] text-slate-500">클릭 시 R{nextAvailableRound} 세팅</div>
@@ -559,7 +560,7 @@ export default function OperatorPanel({
               <span>Round {drawRound} {drawPrizeName.includes('베스트') ? '선정 및 확정' : '추첨 실행'}</span>
             </button>
             <p className="text-[10px] text-slate-500">
-              * 진행된 라운드(1~{maxCompletedRound})는 중복 선택이 차단되며, 테스트 당첨자는 본 추첨 모수에서 자동 제외됩니다.
+              * 진행된 라운드(1~{maxCompletedRound})는 중복 선택이 차단되며, 테스트 당첨자는 본 추첨 모수에서 자동 제외됩니다. 베스트 칭찬상/칭찬러는 진행자(강성훈) 제외, 추첨 모수는 총 26명(이현서, 최지훈 포함)입니다.
             </p>
           </div>
         )}

@@ -59,20 +59,20 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false });
 
       if (historyRows && historyRows.length > 0) {
-        const latestByTarget = new Map<string, any>();
+        const latestByNoteId = new Map<string, any>();
         for (const h of historyRows) {
-          if (!latestByTarget.has(h.target_user_id)) {
-            latestByTarget.set(h.target_user_id, h);
+          if (!latestByNoteId.has(h.note_id)) {
+            latestByNoteId.set(h.note_id, h);
           }
         }
-        rawNotes = Array.from(latestByTarget.values())
+        rawNotes = Array.from(latestByNoteId.values())
           .filter(h => h.change_type !== 'delete')
           .map(h => ({
             id: h.note_id,
-            user_id: h.user_id,
-            target_user_id: h.target_user_id,
+            userId: h.user_id,
+            targetUserId: h.target_user_id,
             content: h.content,
-            updated_at: h.created_at
+            updatedAt: h.created_at
           }));
       }
     }
@@ -82,20 +82,20 @@ export async function GET(request: Request) {
       if (seedNotes.length > 0) {
         rawNotes = seedNotes.map(n => ({
           id: n.id,
-          user_id: n.userId,
-          target_user_id: n.targetUserId,
+          userId: n.userId,
+          targetUserId: n.targetUserId,
           content: n.content,
-          updated_at: n.updatedAt
+          updatedAt: n.updatedAt
         }));
       }
     }
 
     const formattedNotes = rawNotes.map(n => ({
       id: n.id,
-      userId: n.user_id,
-      targetUserId: n.target_user_id,
+      userId: n.user_id || n.userId,
+      targetUserId: n.target_user_id || n.targetUserId,
       content: n.content,
-      updatedAt: n.updated_at
+      updatedAt: n.updated_at || n.updatedAt
     }));
 
     return NextResponse.json({ notes: formattedNotes });
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
   const session = getSessionFromRequest(request);
 
   try {
-    const { userId: bodyUserId, targetUserId, content } = await request.json();
+    const { userId: bodyUserId, targetUserId, content, noteId: bodyNoteId } = await request.json();
     if (!targetUserId) {
       return NextResponse.json({ error: 'targetUserId required' }, { status: 400 });
     }
@@ -137,26 +137,9 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-    // Check if existing note exists
-    const { data: existing } = await supabase
-      .from('private_notes')
-      .select('id')
-      .eq('user_id', authorUserId)
-      .eq('target_user_id', targetUserId)
-      .maybeSingle();
-
-    let noteId = existing?.id;
-    if (!noteId) {
-      const { data: existingHistory } = await supabase
-        .from('private_note_history')
-        .select('note_id, revision')
-        .eq('user_id', authorUserId)
-        .eq('target_user_id', targetUserId)
-        .order('revision', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      noteId = existingHistory?.note_id || `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-    }
+    // If bodyNoteId is provided, edit that specific note.
+    // If not provided, generate a new unique note ID to allow multiple notes per colleague!
+    const noteId = bodyNoteId || `note-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
     const { data, error } = await supabase
       .from('private_notes')
@@ -171,7 +154,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
-      // Fallback: write directly to private_note_history if private_notes RLS blocks direct write
+      // Fallback: write directly to private_note_history if private_notes direct write is hindered
       const { data: prevHist } = await supabase
         .from('private_note_history')
         .select('revision')
@@ -212,6 +195,65 @@ export async function POST(request: Request) {
         updatedAt: data.updated_at
       }
     });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ error: 'SUPABASE_UNCONFIGURED' }, { status: 500 });
+  }
+
+  const session = getSessionFromRequest(request);
+  const { searchParams } = new URL(request.url);
+  const noteId = searchParams.get('id') || searchParams.get('noteId');
+  const bodyUserId = searchParams.get('userId');
+
+  if (!noteId) {
+    return NextResponse.json({ error: 'noteId required' }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabaseServerClient();
+    let authorUserId = session?.userId || '';
+
+    if (!authorUserId && bodyUserId) {
+      const { data: validUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', bodyUserId)
+        .maybeSingle();
+      if (validUser) {
+        authorUserId = validUser.id;
+      }
+    }
+
+    if (!authorUserId) {
+      return NextResponse.json({ error: 'UNAUTHORIZED: Valid login session required' }, { status: 401 });
+    }
+
+    // 1. Delete from private_notes
+    const { error: delErr } = await supabase
+      .from('private_notes')
+      .delete()
+      .eq('id', noteId)
+      .eq('user_id', authorUserId);
+
+    // 2. Audit log deletion in private_note_history
+    const now = new Date().toISOString();
+    await supabase.from('private_note_history').insert({
+      id: `pnh-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      note_id: noteId,
+      user_id: authorUserId,
+      target_user_id: '',
+      content: '',
+      revision: 999,
+      change_type: 'delete',
+      created_at: now
+    });
+
+    return NextResponse.json({ success: true, deletedNoteId: noteId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }

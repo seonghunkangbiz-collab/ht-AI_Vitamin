@@ -180,12 +180,17 @@ export async function getNotesForUser(userId: string): Promise<{ notes?: Private
   }
 }
 
-export async function saveNote(userId: string, targetUserId: string, content: string): Promise<{ note?: PrivateNote; error?: string }> {
+export async function saveNote(
+  userId: string,
+  targetUserId: string,
+  content: string,
+  noteId?: string
+): Promise<{ note?: PrivateNote; error?: string }> {
   try {
     const res = await fetch('/api/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, targetUserId, content }),
+      body: JSON.stringify({ userId, targetUserId, content, noteId }),
       cache: 'no-store'
     });
     const data = await res.json();
@@ -194,6 +199,23 @@ export async function saveNote(userId: string, targetUserId: string, content: st
     }
     invalidateCache(`notes:${userId}`);
     return { note: data.note };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function deleteNote(userId: string, noteId: string): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}&userId=${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { error: data.error };
+    }
+    invalidateCache(`notes:${userId}`);
+    return { success: true };
   } catch (e: any) {
     return { error: e.message };
   }

@@ -4,6 +4,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Award, Sparkles, Trophy, CheckCircle, ShieldCheck } from 'lucide-react';
 import { RevealDrawItem } from '@/lib/reveal-day/types';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 
 interface LuckyDrawSegmentProps {
   draws: RevealDrawItem[];
@@ -118,9 +119,11 @@ export default function LuckyDrawSegment({
                 </div>
               )}
 
-              <div className="mt-3 flex items-baseline justify-center gap-2">
+              <div className="mt-3 flex items-baseline justify-center gap-2.5">
                 <h2 className="text-4xl font-black text-white">{latestWinner.winnerName}</h2>
-                <span className="text-lg font-bold text-slate-400">님</span>
+                <span className="text-xl font-bold text-amber-300 bg-amber-950/70 border border-amber-400/40 px-3 py-0.5 rounded-full shadow-sm">
+                  {getUserTitle(latestWinner.winnerName)}
+                </span>
               </div>
 
               <p className="text-sm font-semibold text-slate-300 mt-1">
@@ -175,7 +178,10 @@ export default function LuckyDrawSegment({
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-white">{d.winnerName} 님</span>
+                          <span className="text-xs font-black text-white">{d.winnerName}</span>
+                          <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">
+                            {getUserTitle(d.winnerName)}
+                          </span>
                           {isLatest && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
                               NEW

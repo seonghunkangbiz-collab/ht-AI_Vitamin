@@ -113,7 +113,7 @@ export default function StageCanvas({
           {currentSegment === 'lucky_draw' && (
             <LuckyDrawSegment
               draws={draws}
-              totalEligible={24}
+              totalEligible={26}
             />
           )}
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
-import { executeServerDraw, voidDraw } from '@/lib/reveal-day/draw';
+import { executeServerDraw, voidDraw, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/reveal-day/draw';
 import { REHEARSAL_USERS } from '@/lib/reveal-day/rehearsal-data';
 
 export const dynamic = 'force-dynamic';
@@ -36,13 +36,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: drawErr.message }, { status: 500 });
     }
 
-    // 2. Calculate eligible candidate count
+    // 2. Calculate eligible candidate count (including additional members: 이현서, 최지훈)
     let totalEligible = 0;
     if (isRehearsal) {
-      totalEligible = REHEARSAL_USERS.length;
+      totalEligible = REHEARSAL_USERS.length + ADDITIONAL_LUCKY_DRAW_MEMBERS.length;
     } else {
-      const { data: users } = await supabase.from('users').select('id, role');
-      totalEligible = (users || []).filter(u => u.role !== 'admin').length;
+      const { data: users } = await supabase.from('users').select('id, name, role');
+      const activeUsers = (users || []).filter(u => u.role !== 'admin');
+      const extraCount = ADDITIONAL_LUCKY_DRAW_MEMBERS.filter(
+        extra => !activeUsers.some(u => u.name === extra.name)
+      ).length;
+      totalEligible = activeUsers.length + extraCount;
     }
 
     const previousWinnerIds = new Set(

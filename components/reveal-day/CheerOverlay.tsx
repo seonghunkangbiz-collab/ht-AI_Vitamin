@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getUserTitle } from '@/lib/reveal-day/titles';
 
 export const REACTION_EMOJIS: Record<string, string> = {
   heart: '❤️',
@@ -252,6 +253,9 @@ export default function CheerOverlay({ eventId, showToasts = false }: CheerOverl
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="text-xs font-black text-white truncate">
                       {toast.senderName}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/10 px-1 py-0.2 rounded border border-amber-400/20 shrink-0">
+                      {getUserTitle(toast.senderName)}
                     </span>
                     {toast.senderTeam && (
                       <span className="text-[10px] text-sky-300 font-semibold truncate">
