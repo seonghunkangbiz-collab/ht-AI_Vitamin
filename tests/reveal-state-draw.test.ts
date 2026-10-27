@@ -5,7 +5,7 @@ import { selectWinnerWithCSPRNG, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/rev
 import { getUserTitle, formatNameWithTitle } from '@/lib/reveal-day/titles';
 import { getRehearsalSnapshot, getRehearsalPublicState } from '@/lib/reveal-day/rehearsal-data';
 import { INITIAL_USERS } from '@/lib/seedData';
-import { AI_VITAMIN_PLAYLIST } from '@/lib/reveal-day/song-playlist';
+import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
 import { ORDERED_SEGMENTS, SEGMENT_METADATA } from '@/lib/reveal-day/state-machine';
 import type { RevealPublicState } from '@/lib/reveal-day/types';
 
@@ -401,6 +401,45 @@ test('Test 25: Merged Pizza Party & AI Vitamin Song segment and looping playlist
   assert.equal(track2.durationSeconds, 166);
   assert.equal(track2.sections[0].tag, 'Verse 1');
   assert.equal(track2.sections[0].lines[0], '물어볼 때마다 친절한 대답');
+});
+
+test('Test 26: Video URL parser and dual-mode playback support', () => {
+  // 1. YouTube standard URL
+  const ytStandard = parseVideoUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  assert.equal(ytStandard.isValid, true);
+  assert.equal(ytStandard.type, 'youtube');
+  assert.ok(ytStandard.embedUrl.includes('https://www.youtube.com/embed/dQw4w9WgXcQ'));
+
+  // 2. YouTube short link (youtu.be)
+  const ytShort = parseVideoUrl('https://youtu.be/dQw4w9WgXcQ?si=abcdef123');
+  assert.equal(ytShort.isValid, true);
+  assert.equal(ytShort.type, 'youtube');
+  assert.ok(ytShort.embedUrl.includes('https://www.youtube.com/embed/dQw4w9WgXcQ'));
+
+  // 3. YouTube embed URL
+  const ytEmbed = parseVideoUrl('https://www.youtube.com/embed/dQw4w9WgXcQ');
+  assert.equal(ytEmbed.isValid, true);
+  assert.equal(ytEmbed.type, 'youtube');
+
+  // 4. Direct HTML5 video file
+  const mp4Direct = parseVideoUrl('https://example.com/assets/ai_vitamin_mv.mp4');
+  assert.equal(mp4Direct.isValid, true);
+  assert.equal(mp4Direct.type, 'direct');
+  assert.equal(mp4Direct.embedUrl, 'https://example.com/assets/ai_vitamin_mv.mp4');
+
+  // 5. Vimeo link
+  const vimeoUrl = parseVideoUrl('https://vimeo.com/123456789');
+  assert.equal(vimeoUrl.isValid, true);
+  assert.equal(vimeoUrl.type, 'vimeo');
+  assert.ok(vimeoUrl.embedUrl.includes('123456789'));
+
+  // 6. Invalid / Empty URL
+  const emptyUrl = parseVideoUrl('');
+  assert.equal(emptyUrl.isValid, false);
+  assert.equal(emptyUrl.type, 'unknown');
+
+  const invalidUrl = parseVideoUrl('not-a-valid-url');
+  assert.equal(invalidUrl.isValid, false);
 });
 
 

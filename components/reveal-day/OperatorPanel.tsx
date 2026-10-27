@@ -29,9 +29,13 @@ import {
   SkipBack,
   Repeat,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Video,
+  Film,
+  ExternalLink,
+  Link2
 } from 'lucide-react';
-import { AI_VITAMIN_PLAYLIST } from '@/lib/reveal-day/song-playlist';
+import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 interface OperatorPanelProps {
@@ -87,10 +91,67 @@ export default function OperatorPanel({
     isRehearsal ? '아이패드 에어 11 M4 256GB' : '베스트 칭찬상 : 스타벅스 상품권 2만원권'
   );
 
-  // Song Player Controls for Operator
+  // Song Player & Video Controls for Operator
+  const [songMode, setSongMode] = useState<'video' | 'audio'>('video');
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [inputVideoUrl, setInputVideoUrl] = useState<string>('');
+  const [videoBroadcastSuccess, setVideoBroadcastSuccess] = useState<boolean>(false);
   const [songTrackIndex, setSongTrackIndex] = useState<number>(0);
   const [isSongPlaying, setIsSongPlaying] = useState<boolean>(false);
   const [showLyricsPreview, setShowLyricsPreview] = useState<boolean>(false);
+
+  // Sync saved mode and video URL on mount
+  React.useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('reveal_day_song_mode');
+      if (savedMode === 'video' || savedMode === 'audio') {
+        setSongMode(savedMode);
+      }
+      const savedUrl = localStorage.getItem('reveal_day_video_url');
+      if (savedUrl) {
+        setVideoUrl(savedUrl);
+        setInputVideoUrl(savedUrl);
+      }
+    } catch {}
+  }, []);
+
+  const sendModeChange = (mode: 'video' | 'audio') => {
+    setSongMode(mode);
+    try { localStorage.setItem('reveal_day_song_mode', mode); } catch {}
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: { action: 'set_mode', mode, videoUrl }
+        });
+      }
+    } catch {}
+  };
+
+  const sendBroadcastVideoUrl = (urlToBroadcast: string) => {
+    const trimmed = urlToBroadcast.trim();
+    setVideoUrl(trimmed);
+    setInputVideoUrl(trimmed);
+    setSongMode('video');
+    try {
+      localStorage.setItem('reveal_day_video_url', trimmed);
+      localStorage.setItem('reveal_day_song_mode', 'video');
+    } catch {}
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: { action: 'set_video_url', videoUrl: trimmed, mode: 'video' }
+        });
+      }
+      setVideoBroadcastSuccess(true);
+      setTimeout(() => setVideoBroadcastSuccess(false), 2500);
+    } catch {}
+  };
 
   const sendSongControl = (action: 'play' | 'pause' | 'change_track', trackIndex?: number) => {
     try {
@@ -597,134 +658,223 @@ export default function OperatorPanel({
 
         {(currentSegment === 'pizza_party' || currentSegment === 'song') && (
           <div className="flex flex-col gap-3">
-            {/* 1. AI Vitamin Song Player & Lyrics Controls */}
+            {/* 1. AI Vitamin Song Controls: Dual Mode (Video vs Audio) */}
             <div className="p-3.5 rounded-xl bg-slate-950/70 border border-sky-500/30 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400">
-                  <Music className="w-4 h-4 text-sky-400" />
-                  <span>🎵 AI Vitamin Song 음원 제어</span>
+              {/* Header with Mode Switch Tabs */}
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <span>🎬 AI Vitamin Song 송출 모드</span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1">
-                  <Repeat className="w-3 h-3" /> 2곡 연속 반복
-                </span>
-              </div>
-
-              {/* Track Switcher Tabs */}
-              <div className="grid grid-cols-2 gap-1.5">
-                {AI_VITAMIN_PLAYLIST.map((track, idx) => (
+                <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
                   <button
-                    key={track.id}
                     type="button"
-                    onClick={() => {
-                      setSongTrackIndex(idx);
-                      sendSongControl('change_track', idx);
-                      setIsSongPlaying(true);
-                    }}
-                    className={`p-2 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
-                      songTrackIndex === idx
-                        ? 'bg-sky-500/25 border-sky-400 text-white shadow-sm'
-                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    onClick={() => sendModeChange('video')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                      songMode === 'video'
+                        ? 'bg-rose-500 text-white shadow font-black'
+                        : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[9px] px-1 rounded font-bold ${
-                        songTrackIndex === idx ? 'bg-sky-400 text-slate-950' : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        {idx === 0 ? '1. 긴 음악' : '2. 스페셜'}
+                    <Video className="w-3 h-3" />
+                    <span>뮤직비디오 (영상)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendModeChange('audio')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                      songMode === 'audio'
+                        ? 'bg-sky-500 text-white shadow font-black'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Music className="w-3 h-3" />
+                    <span>오디오 & 가사</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode 1: Video Mode Controls */}
+              {songMode === 'video' ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-rose-300 flex items-center gap-1">
+                      <Film className="w-3.5 h-3.5" />
+                      뮤직비디오 영상 링크 설정 (YouTube / MP4 / Vimeo)
+                    </span>
+                    {videoBroadcastSuccess && (
+                      <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5 animate-bounce">
+                        <Check className="w-3 h-3" />
+                        빔 화면 실시간 동기화 완료!
                       </span>
-                      <span className="text-[9px] font-mono text-slate-400">{track.durationLabel}</span>
-                    </div>
-                    <span className="text-xs font-bold truncate">{track.title}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Audio Controls Bar */}
-              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const prevIdx = (songTrackIndex - 1 + AI_VITAMIN_PLAYLIST.length) % AI_VITAMIN_PLAYLIST.length;
-                      setSongTrackIndex(prevIdx);
-                      sendSongControl('change_track', prevIdx);
-                      setIsSongPlaying(true);
-                    }}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
-                    title="이전 곡"
-                  >
-                    <SkipBack className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextPlay = !isSongPlaying;
-                      setIsSongPlaying(nextPlay);
-                      sendSongControl(nextPlay ? 'play' : 'pause');
-                    }}
-                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      isSongPlaying
-                        ? 'bg-amber-500 text-slate-950 font-black'
-                        : 'bg-sky-500 hover:bg-sky-400 text-white font-bold'
-                    }`}
-                  >
-                    {isSongPlaying ? (
-                      <>
-                        <Pause className="w-3.5 h-3.5 fill-current" />
-                        <span>빔 송출 일시정지</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>빔 송출 음악 재생</span>
-                      </>
                     )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextIdx = (songTrackIndex + 1) % AI_VITAMIN_PLAYLIST.length;
-                      setSongTrackIndex(nextIdx);
-                      sendSongControl('change_track', nextIdx);
-                      setIsSongPlaying(true);
-                    }}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
-                    title="다음 곡"
-                  >
-                    <SkipForward className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Lyrics Drawer Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowLyricsPreview(prev => !prev)}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 flex items-center gap-1 border border-slate-700/60"
-                >
-                  <FileText className="w-3 h-3 text-amber-400" />
-                  <span>가사 {showLyricsPreview ? '접기' : '보기'}</span>
-                  {showLyricsPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-              </div>
-
-              {/* Collapsible Lyrics Preview */}
-              {showLyricsPreview && (
-                <div className="max-h-48 overflow-y-auto p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] space-y-2 mt-1">
-                  <div className="text-[10px] text-amber-400 font-bold">
-                    {AI_VITAMIN_PLAYLIST[songTrackIndex].title} 가사 미리보기
                   </div>
-                  {AI_VITAMIN_PLAYLIST[songTrackIndex].sections.map((sec, sIdx) => (
-                    <div key={sIdx} className="space-y-0.5">
-                      <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-slate-400 font-bold">
-                        [{sec.tag}]
-                      </span>
-                      {sec.lines.map((l, lIdx) => l !== '' && (
-                        <div key={lIdx} className="text-slate-300 leading-tight">
-                          {l}
+
+                  {/* Video URL Input & Broadcast Button */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={inputVideoUrl}
+                        onChange={(e) => setInputVideoUrl(e.target.value)}
+                        placeholder="유튜브 링크 (예: https://youtu.be/... 또는 MP4 URL)"
+                        className="w-full py-1.5 pl-7 pr-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                      />
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2.5" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => sendBroadcastVideoUrl(inputVideoUrl)}
+                      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:opacity-90 text-white font-black text-xs shrink-0 shadow-md shadow-rose-500/20 transition-all flex items-center gap-1"
+                    >
+                      <span>빔 송출 적용</span>
+                    </button>
+                  </div>
+
+                  {/* Quick video status pill */}
+                  {videoUrl ? (
+                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px] flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-300 truncate">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="text-amber-400 font-mono">
+                          [{parseVideoUrl(videoUrl).type.toUpperCase()}]
+                        </span>
+                        <span className="truncate">{videoUrl}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => sendBroadcastVideoUrl(videoUrl)}
+                        className="text-sky-400 hover:text-sky-300 font-bold shrink-0 ml-2 text-[10px]"
+                      >
+                        재송출
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-slate-400">
+                      * 영상 링크를 입력하고 [빔 송출 적용]을 누르면 빔프로젝터 화면에 영상이 즉시 재생됩니다.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Mode 2: Audio & Lyrics Mode Controls */
+                <div className="flex flex-col gap-2">
+                  {/* Track Switcher Tabs */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {AI_VITAMIN_PLAYLIST.map((track, idx) => (
+                      <button
+                        key={track.id}
+                        type="button"
+                        onClick={() => {
+                          setSongTrackIndex(idx);
+                          sendSongControl('change_track', idx);
+                          setIsSongPlaying(true);
+                        }}
+                        className={`p-2 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                          songTrackIndex === idx
+                            ? 'bg-sky-500/25 border-sky-400 text-white shadow-sm'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[9px] px-1 rounded font-bold ${
+                            songTrackIndex === idx ? 'bg-sky-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {idx === 0 ? '1. 긴 음악' : '2. 스페셜'}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400">{track.durationLabel}</span>
+                        </div>
+                        <span className="text-xs font-bold truncate">{track.title}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Audio Controls Bar */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prevIdx = (songTrackIndex - 1 + AI_VITAMIN_PLAYLIST.length) % AI_VITAMIN_PLAYLIST.length;
+                          setSongTrackIndex(prevIdx);
+                          sendSongControl('change_track', prevIdx);
+                          setIsSongPlaying(true);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        title="이전 곡"
+                      >
+                        <SkipBack className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextPlay = !isSongPlaying;
+                          setIsSongPlaying(nextPlay);
+                          sendSongControl(nextPlay ? 'play' : 'pause');
+                        }}
+                        className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          isSongPlaying
+                            ? 'bg-amber-500 text-slate-950 font-black'
+                            : 'bg-sky-500 hover:bg-sky-400 text-white font-bold'
+                        }`}
+                      >
+                        {isSongPlaying ? (
+                          <>
+                            <Pause className="w-3.5 h-3.5 fill-current" />
+                            <span>빔 송출 일시정지</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>빔 송출 음악 재생</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextIdx = (songTrackIndex + 1) % AI_VITAMIN_PLAYLIST.length;
+                          setSongTrackIndex(nextIdx);
+                          sendSongControl('change_track', nextIdx);
+                          setIsSongPlaying(true);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        title="다음 곡"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Lyrics Drawer Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowLyricsPreview(prev => !prev)}
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 flex items-center gap-1 border border-slate-700/60"
+                    >
+                      <FileText className="w-3 h-3 text-amber-400" />
+                      <span>가사 {showLyricsPreview ? '접기' : '보기'}</span>
+                      {showLyricsPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  </div>
+
+                  {/* Collapsible Lyrics Preview */}
+                  {showLyricsPreview && (
+                    <div className="max-h-48 overflow-y-auto p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] space-y-2 mt-1">
+                      <div className="text-[10px] text-amber-400 font-bold">
+                        {AI_VITAMIN_PLAYLIST[songTrackIndex].title} 가사 미리보기
+                      </div>
+                      {AI_VITAMIN_PLAYLIST[songTrackIndex].sections.map((sec, sIdx) => (
+                        <div key={sIdx} className="space-y-0.5">
+                          <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-slate-400 font-bold">
+                            [{sec.tag}]
+                          </span>
+                          {sec.lines.map((l, lIdx) => l !== '' && (
+                            <div key={lIdx} className="text-slate-300 leading-tight">
+                              {l}
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>

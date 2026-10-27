@@ -267,3 +267,73 @@ export const AI_VITAMIN_PLAYLIST: SongTrack[] = [
     ]
   }
 ];
+
+export interface ParsedVideoInfo {
+  type: 'youtube' | 'direct' | 'vimeo' | 'unknown';
+  embedUrl: string;
+  originalUrl: string;
+  isValid: boolean;
+}
+
+export function parseVideoUrl(inputUrl?: string): ParsedVideoInfo {
+  if (!inputUrl || typeof inputUrl !== 'string') {
+    return { type: 'unknown', embedUrl: '', originalUrl: '', isValid: false };
+  }
+  const trimmed = inputUrl.trim();
+  if (!trimmed) {
+    return { type: 'unknown', embedUrl: '', originalUrl: '', isValid: false };
+  }
+
+  // 1. YouTube Matcher
+  // Matches:
+  // - https://www.youtube.com/watch?v=VIDEO_ID
+  // - https://youtu.be/VIDEO_ID
+  // - https://www.youtube.com/embed/VIDEO_ID
+  // - https://m.youtube.com/watch?v=VIDEO_ID
+  const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const ytMatch = trimmed.match(youtubeRegex);
+  if (ytMatch && ytMatch[1]) {
+    const videoId = ytMatch[1];
+    return {
+      type: 'youtube',
+      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`,
+      originalUrl: trimmed,
+      isValid: true
+    };
+  }
+
+  // 2. Vimeo Matcher
+  const vimeoRegex = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
+  const vimeoMatch = trimmed.match(vimeoRegex);
+  if (vimeoMatch && (vimeoMatch[3] || vimeoMatch[1])) {
+    const vimeoId = vimeoMatch[3] || vimeoMatch[1];
+    return {
+      type: 'vimeo',
+      embedUrl: `https://player.vimeo.com/video/${vimeoId}?autoplay=1`,
+      originalUrl: trimmed,
+      isValid: true
+    };
+  }
+
+  // 3. Direct HTML5 Video File (.mp4, .webm, .ogg, .mov, etc.)
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('blob:') || trimmed.startsWith('data:video')) {
+    return {
+      type: 'direct',
+      embedUrl: trimmed,
+      originalUrl: trimmed,
+      isValid: true
+    };
+  }
+
+  // 4. Fallback: Generic URL (attempt iframe/direct)
+  if (/^https?:\/\//i.test(trimmed)) {
+    return {
+      type: 'direct',
+      embedUrl: trimmed,
+      originalUrl: trimmed,
+      isValid: true
+    };
+  }
+
+  return { type: 'unknown', embedUrl: '', originalUrl: trimmed, isValid: false };
+}
