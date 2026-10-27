@@ -5,6 +5,8 @@ import { selectWinnerWithCSPRNG, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/rev
 import { getUserTitle, formatNameWithTitle } from '@/lib/reveal-day/titles';
 import { getRehearsalSnapshot, getRehearsalPublicState } from '@/lib/reveal-day/rehearsal-data';
 import { INITIAL_USERS } from '@/lib/seedData';
+import { AI_VITAMIN_PLAYLIST } from '@/lib/reveal-day/song-playlist';
+import { ORDERED_SEGMENTS, SEGMENT_METADATA } from '@/lib/reveal-day/state-machine';
 import type { RevealPublicState } from '@/lib/reveal-day/types';
 
 // Mock DB store for testing state transitions and version conflicts
@@ -369,5 +371,37 @@ test('Test 24: Reveal Day check-in & login support for Lee Hyun-seo (50007) and 
   assert.equal(findByInput('VIT-50008')?.id, 'user-26');
   assert.equal(findByInput('최지훈')?.id, 'user-26');
 });
+
+test('Test 25: Merged Pizza Party & AI Vitamin Song segment and looping playlist', () => {
+  // 1. Segment order: lucky_draw -> closing -> pizza_party (which plays AI Vitamin Song)
+  assert.ok(ORDERED_SEGMENTS.includes('closing'));
+  assert.ok(ORDERED_SEGMENTS.includes('pizza_party'));
+  assert.equal(ORDERED_SEGMENTS.indexOf('closing') < ORDERED_SEGMENTS.indexOf('pizza_party'), true);
+
+  // Metadata verification
+  assert.equal(SEGMENT_METADATA.pizza_party.title, 'Pizza Party & AI Vitamin Song');
+  assert.equal(SEGMENT_METADATA.pizza_party.durationMinutes, 50);
+
+  // 2. Playlist tracks verification
+  assert.equal(AI_VITAMIN_PLAYLIST.length, 2);
+
+  // Track 1: Long track must be played first
+  const track1 = AI_VITAMIN_PLAYLIST[0];
+  assert.equal(track1.id, 'track-1-long');
+  assert.equal(track1.src, '/audio/ai_vitamin_song_long.mp3');
+  assert.equal(track1.durationSeconds, 267);
+  assert.equal(track1.sections[0].tag, 'Intro');
+  assert.equal(track1.sections[0].lines[0], '오, 오, 오 — 함께라서');
+  assert.equal(track1.sections[track1.sections.length - 1].tag, 'Outro');
+
+  // Track 2: Special track plays after
+  const track2 = AI_VITAMIN_PLAYLIST[1];
+  assert.equal(track2.id, 'track-2-short');
+  assert.equal(track2.src, '/audio/ai_vitamin_song_short.mp3');
+  assert.equal(track2.durationSeconds, 166);
+  assert.equal(track2.sections[0].tag, 'Verse 1');
+  assert.equal(track2.sections[0].lines[0], '물어볼 때마다 친절한 대답');
+});
+
 
 

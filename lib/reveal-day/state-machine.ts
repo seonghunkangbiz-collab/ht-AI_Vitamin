@@ -8,7 +8,6 @@ export const ORDERED_SEGMENTS: RevealSegment[] = [
   'mate_reveal',
   'time_capsule',
   'lucky_draw',
-  'song',
   'closing',
   'pizza_party',
   'ended'
@@ -45,28 +44,28 @@ export const SEGMENT_METADATA: Record<RevealSegment, { title: string; durationMi
     timeRange: '16:45~17:00',
     description: '서버 CSPRNG 기반 공정하고 투명한 럭키 드로우'
   },
-  song: {
-    title: 'HT 사업본부 AI Vitamin Song',
-    durationMinutes: 5,
-    timeRange: '17:00~17:05',
-    description: 'AI가 제작한 HT사업본부 비타민 헌정곡 감상'
-  },
   closing: {
     title: 'Closing',
     durationMinutes: 5,
-    timeRange: '17:05~17:10',
+    timeRange: '17:00~17:05',
     description: '본부장님 마무리 말씀 및 감사 인사'
   },
   pizza_party: {
-    title: 'Pizza Party & Photo',
+    title: 'Pizza Party & AI Vitamin Song',
     durationMinutes: 50,
-    timeRange: '17:10~18:00',
-    description: '피자 파티, 자유 네트워킹 및 단체 기념 촬영'
+    timeRange: '17:05~17:55',
+    description: '피자 파티와 함께 듣는 HT 사업본부 AI Vitamin Song & 단체 기념 촬영'
+  },
+  song: {
+    title: 'Pizza Party & AI Vitamin Song',
+    durationMinutes: 50,
+    timeRange: '17:05~17:55',
+    description: '피자 파티와 함께 듣는 HT 사업본부 AI Vitamin Song & 단체 기념 촬영'
   },
   ended: {
     title: '행사 종료',
     durationMinutes: 0,
-    timeRange: '17:30~',
+    timeRange: '18:00~',
     description: 'Reveal Day 행사가 성공적으로 종료되었습니다.'
   }
 };

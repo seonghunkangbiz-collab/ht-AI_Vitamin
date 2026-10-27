@@ -10,7 +10,7 @@ import TimeCapsuleSegment from './segments/TimeCapsuleSegment';
 import LuckyDrawSegment from './segments/LuckyDrawSegment';
 import SongSegment from './segments/SongSegment';
 import ClosingSegment from './segments/ClosingSegment';
-import PizzaPartySegment from './segments/PizzaPartySegment';
+import PizzaPartySongSegment from './segments/PizzaPartySongSegment';
 import CheerOverlay from './CheerOverlay';
 import { AlertTriangle, Clock } from 'lucide-react';
 
@@ -117,20 +117,16 @@ export default function StageCanvas({
             />
           )}
 
-          {currentSegment === 'song' && (
-            <SongSegment songUrl={songUrl} />
-          )}
-
-          {currentSegment === 'closing' && (
-            <ClosingSegment />
-          )}
-
-          {(currentSegment === 'pizza_party' || currentSegment === 'ended') && (
-            <PizzaPartySegment
+          {(currentSegment === 'song' || currentSegment === 'pizza_party' || currentSegment === 'ended') && (
+            <PizzaPartySongSegment
               eventId={publicState.eventId}
               initialSeconds={publicState.pizzaTimerSeconds ?? 50 * 60}
               isPausedInitial={publicState.isPizzaTimerPaused ?? false}
             />
+          )}
+
+          {currentSegment === 'closing' && (
+            <ClosingSegment />
           )}
         </motion.div>
       </AnimatePresence>

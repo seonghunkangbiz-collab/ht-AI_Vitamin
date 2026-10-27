@@ -23,8 +23,16 @@ import {
   Clock,
   Plus,
   Award,
-  Check
+  Check,
+  Music,
+  SkipForward,
+  SkipBack,
+  Repeat,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import { AI_VITAMIN_PLAYLIST } from '@/lib/reveal-day/song-playlist';
+import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 interface OperatorPanelProps {
   event: RevealEvent;
@@ -79,6 +87,28 @@ export default function OperatorPanel({
     isRehearsal ? '아이패드 에어 11 M4 256GB' : '베스트 칭찬상 : 스타벅스 상품권 2만원권'
   );
 
+  // Song Player Controls for Operator
+  const [songTrackIndex, setSongTrackIndex] = useState<number>(0);
+  const [isSongPlaying, setIsSongPlaying] = useState<boolean>(false);
+  const [showLyricsPreview, setShowLyricsPreview] = useState<boolean>(false);
+
+  const sendSongControl = (action: 'play' | 'pause' | 'change_track', trackIndex?: number) => {
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: {
+            action,
+            trackIndex: trackIndex ?? songTrackIndex,
+            shouldPlay: action === 'play' || action === 'change_track'
+          }
+        });
+      }
+    } catch {}
+  };
+
   // Automatically keep drawRound synced to nextAvailableRound if drawRound is already completed or lower
   React.useEffect(() => {
     if (completedRounds.includes(drawRound) || drawRound < nextAvailableRound) {
@@ -95,9 +125,9 @@ export default function OperatorPanel({
     mate_reveal: '“이제 모두가 가장 기다려온 순서입니다! 나를 지켜보고 격려해 준 비밀 비타민 메이트는 과연 누구였을까요? 한 분씩 공개해 드리겠습니다.”',
     time_capsule: '“동료들의 응원 메시지를 AI가 분석하여 작성한 감동의 타임캡슐을 오픈합니다. 참석자 여러분은 지금 모바일 화면에서 본인 캡슐을 확인하실 수 있습니다!”',
     lucky_draw: '“행사의 즐거움을 더할 AI 럭키 드로우 시간입니다! 지난 2달간 가장 많은 칭찬을 받으신 분께 드리는 ‘베스트 칭찬상’, 가장 많은 칭찬을 전해주신 ‘베스트 칭찬러상’, 그리고 실시간 행운상 추첨을 시작합니다!”',
-    song: '“AI가 우리 본부의 비타민 여정을 바탕으로 작곡하고 노래한 비타민 헌정곡입니다. 가사를 음미하며 함께 감상하시겠습니다.”',
-    closing: '“마지막으로 지난 2달간 함께 힘써주신 모든 분들을 위해 본부장님의 맺음말씀이 있겠습니다. 본부장님을 큰 박수로 모시겠습니다!”',
-    pizza_party: '“모든 순서가 끝났습니다! 준비된 피자와 함께 자유롭게 네트워킹을 즐겨주시고, 잠시 후 무대 앞에서 단체 기념사진을 촬영하겠습니다!”',
+    song: '“모든 공식 순서가 끝났습니다! 준비된 피자와 함께 AI가 헌정한 비타민 송을 감상하며 자유롭게 네트워킹을 즐겨주시고, 잠시 후 무대 앞에서 단체 기념사진을 촬영하겠습니다!”',
+    closing: '본부장님 마무리 말씀 및 감사 인사 진행 (별도 MC 멘트 없음)',
+    pizza_party: '“모든 공식 순서가 끝났습니다! 준비된 피자와 함께 AI가 헌정한 비타민 송을 감상하며 자유롭게 네트워킹을 즐겨주시고, 잠시 후 무대 앞에서 단체 기념사진을 촬영하겠습니다!”',
     ended: '행사가 완전히 종료되었습니다. 수고 많으셨습니다!'
   };
 
@@ -565,126 +595,266 @@ export default function OperatorPanel({
           </div>
         )}
 
-        {currentSegment === 'pizza_party' && (
-          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/30 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                <Clock className="w-4 h-4" />
-                <span>🍕 피자 파티 카운트다운 타이머</span>
+        {(currentSegment === 'pizza_party' || currentSegment === 'song') && (
+          <div className="flex flex-col gap-3">
+            {/* 1. AI Vitamin Song Player & Lyrics Controls */}
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-sky-500/30 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400">
+                  <Music className="w-4 h-4 text-sky-400" />
+                  <span>🎵 AI Vitamin Song 음원 제어</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1">
+                  <Repeat className="w-3 h-3" /> 2곡 연속 반복
+                </span>
               </div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                publicState.isPizzaTimerPaused
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              }`}>
-                {publicState.isPizzaTimerPaused ? '일시정지 중' : '실시간 카운트다운 중'}
-              </span>
-            </div>
 
-            {/* Large Digital Timer Readout */}
-            <div className="flex items-center justify-center py-2 px-3 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span className="font-mono text-3xl font-black tracking-wider text-emerald-400">
-                {String(Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60)).padStart(2, '0')}
-                :
-                {String((publicState.pizzaTimerSeconds ?? 50 * 60) % 60).padStart(2, '0')}
-              </span>
-            </div>
-
-            {/* Quick Adjust Buttons */}
-            <div className="flex flex-col gap-1.5">
-              <div className="text-[10px] text-slate-400 font-semibold">시간 미세 조정 (빔프로젝터 실시간 동기화)</div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { label: '-10분', delta: -10 * 60 },
-                  { label: '-5분', delta: -5 * 60 },
-                  { label: '+5분', delta: 5 * 60 },
-                  { label: '+10분', delta: 10 * 60 },
-                ].map(({ label, delta }) => (
+              {/* Track Switcher Tabs */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {AI_VITAMIN_PLAYLIST.map((track, idx) => (
                   <button
-                    key={label}
+                    key={track.id}
+                    type="button"
                     onClick={() => {
-                      const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
-                      const next = Math.max(0, cur + delta);
-                      onAdjustPizzaTimer?.(next, publicState.isPizzaTimerPaused ?? false);
+                      setSongTrackIndex(idx);
+                      sendSongControl('change_track', idx);
+                      setIsSongPlaying(true);
                     }}
-                    disabled={isProcessing}
-                    className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-[11px] font-bold text-slate-200 transition-all border border-slate-700/60"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Presets */}
-            <div className="flex flex-col gap-1.5">
-              <div className="text-[10px] text-slate-400 font-semibold">빠른 시간 세팅</div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[50, 40, 30, 20].map((mins) => (
-                  <button
-                    key={mins}
-                    onClick={() => onAdjustPizzaTimer?.(mins * 60, publicState.isPizzaTimerPaused ?? false)}
-                    disabled={isProcessing}
-                    className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition-all border ${
-                      Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60) === mins
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                        : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-800'
+                    className={`p-2 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 ${
+                      songTrackIndex === idx
+                        ? 'bg-sky-500/25 border-sky-400 text-white shadow-sm'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {mins}분{mins === 50 ? ' (기본)' : ''}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[9px] px-1 rounded font-bold ${
+                        songTrackIndex === idx ? 'bg-sky-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {idx === 0 ? '1. 긴 음악' : '2. 스페셜'}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400">{track.durationLabel}</span>
+                    </div>
+                    <span className="text-xs font-bold truncate">{track.title}</span>
                   </button>
                 ))}
               </div>
+
+              {/* Audio Controls Bar */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prevIdx = (songTrackIndex - 1 + AI_VITAMIN_PLAYLIST.length) % AI_VITAMIN_PLAYLIST.length;
+                      setSongTrackIndex(prevIdx);
+                      sendSongControl('change_track', prevIdx);
+                      setIsSongPlaying(true);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                    title="이전 곡"
+                  >
+                    <SkipBack className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPlay = !isSongPlaying;
+                      setIsSongPlaying(nextPlay);
+                      sendSongControl(nextPlay ? 'play' : 'pause');
+                    }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      isSongPlaying
+                        ? 'bg-amber-500 text-slate-950 font-black'
+                        : 'bg-sky-500 hover:bg-sky-400 text-white font-bold'
+                    }`}
+                  >
+                    {isSongPlaying ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                        <span>빔 송출 일시정지</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>빔 송출 음악 재생</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextIdx = (songTrackIndex + 1) % AI_VITAMIN_PLAYLIST.length;
+                      setSongTrackIndex(nextIdx);
+                      sendSongControl('change_track', nextIdx);
+                      setIsSongPlaying(true);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                    title="다음 곡"
+                  >
+                    <SkipForward className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Lyrics Drawer Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowLyricsPreview(prev => !prev)}
+                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 flex items-center gap-1 border border-slate-700/60"
+                >
+                  <FileText className="w-3 h-3 text-amber-400" />
+                  <span>가사 {showLyricsPreview ? '접기' : '보기'}</span>
+                  {showLyricsPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              {/* Collapsible Lyrics Preview */}
+              {showLyricsPreview && (
+                <div className="max-h-48 overflow-y-auto p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] space-y-2 mt-1">
+                  <div className="text-[10px] text-amber-400 font-bold">
+                    {AI_VITAMIN_PLAYLIST[songTrackIndex].title} 가사 미리보기
+                  </div>
+                  {AI_VITAMIN_PLAYLIST[songTrackIndex].sections.map((sec, sIdx) => (
+                    <div key={sIdx} className="space-y-0.5">
+                      <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-slate-400 font-bold">
+                        [{sec.tag}]
+                      </span>
+                      {sec.lines.map((l, lIdx) => l !== '' && (
+                        <div key={lIdx} className="text-slate-300 leading-tight">
+                          {l}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Pause / Resume & Reset Controls */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                onClick={() => {
-                  const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
-                  const nextPaused = !publicState.isPizzaTimerPaused;
-                  onAdjustPizzaTimer?.(cur, nextPaused);
-                }}
-                disabled={isProcessing}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+            {/* 2. Pizza Party Countdown Timer Controls */}
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/30 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                  <Clock className="w-4 h-4" />
+                  <span>🍕 피자 파티 카운트다운 타이머</span>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
                   publicState.isPizzaTimerPaused
-                    ? 'bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border-emerald-500/40'
-                    : 'bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border-amber-500/40'
-                }`}
-              >
-                {publicState.isPizzaTimerPaused ? (
-                  <>
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>타이머 재개</span>
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-3.5 h-3.5" />
-                    <span>일시정지</span>
-                  </>
-                )}
-              </button>
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                }`}>
+                  {publicState.isPizzaTimerPaused ? '일시정지 중' : '실시간 카운트다운 중'}
+                </span>
+              </div>
 
-              <button
-                onClick={() => onAdjustPizzaTimer?.(50 * 60, false)}
-                disabled={isProcessing}
-                className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-slate-700"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>50분 초기화</span>
-              </button>
-            </div>
+              {/* Large Digital Timer Readout */}
+              <div className="flex items-center justify-center py-2 px-3 rounded-xl bg-slate-900/90 border border-slate-800">
+                <span className="font-mono text-3xl font-black tracking-wider text-emerald-400">
+                  {String(Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60)).padStart(2, '0')}
+                  :
+                  {String((publicState.pizzaTimerSeconds ?? 50 * 60) % 60).padStart(2, '0')}
+                </span>
+              </div>
 
-            {/* End Event Modal Trigger */}
-            <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
-              <button
-                onClick={() => setShowConfirmModal('end_event')}
-                disabled={isProcessing}
-                className="py-2 px-3 rounded-xl bg-red-600/70 hover:bg-red-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Square className="w-3.5 h-3.5" />
-                <span>행사 최종 종료 확정 (End Event)</span>
-              </button>
+              {/* Quick Adjust Buttons */}
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[10px] text-slate-400 font-semibold">시간 미세 조정 (빔프로젝터 실시간 동기화)</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: '-10분', delta: -10 * 60 },
+                    { label: '-5분', delta: -5 * 60 },
+                    { label: '+5분', delta: 5 * 60 },
+                    { label: '+10분', delta: 10 * 60 },
+                  ].map(({ label, delta }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
+                        const next = Math.max(0, cur + delta);
+                        onAdjustPizzaTimer?.(next, publicState.isPizzaTimerPaused ?? false);
+                      }}
+                      disabled={isProcessing}
+                      className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-[11px] font-bold text-slate-200 transition-all border border-slate-700/60"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[10px] text-slate-400 font-semibold">빠른 시간 세팅</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[50, 40, 30, 20].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => onAdjustPizzaTimer?.(mins * 60, publicState.isPizzaTimerPaused ?? false)}
+                      disabled={isProcessing}
+                      className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition-all border ${
+                        Math.floor((publicState.pizzaTimerSeconds ?? 50 * 60) / 60) === mins
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                          : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-800'
+                      }`}
+                    >
+                      {mins}분{mins === 50 ? ' (기본)' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pause / Resume & Reset Controls */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cur = publicState.pizzaTimerSeconds ?? 50 * 60;
+                    const nextPaused = !publicState.isPizzaTimerPaused;
+                    onAdjustPizzaTimer?.(cur, nextPaused);
+                  }}
+                  disabled={isProcessing}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                    publicState.isPizzaTimerPaused
+                      ? 'bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border-emerald-500/40'
+                      : 'bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border-amber-500/40'
+                  }`}
+                >
+                  {publicState.isPizzaTimerPaused ? (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>타이머 재개</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="w-3.5 h-3.5" />
+                      <span>일시정지</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onAdjustPizzaTimer?.(50 * 60, false)}
+                  disabled={isProcessing}
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-slate-700"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>50분 초기화</span>
+                </button>
+              </div>
+
+              {/* End Event Modal Trigger */}
+              <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal('end_event')}
+                  disabled={isProcessing}
+                  className="py-2 px-3 rounded-xl bg-red-600/70 hover:bg-red-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                  <span>행사 최종 종료 확정 (End Event)</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
