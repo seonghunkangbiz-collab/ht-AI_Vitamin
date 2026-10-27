@@ -4,16 +4,17 @@ import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
 import SupabaseConfigError from '@/components/SupabaseConfigError';
 import { User, PrivateNote } from '@/lib/types';
-import { getCurrentUser, getMatesForUser, getNotesForUser, saveNote } from '@/lib/db';
+import { getCurrentUser, getMatesForUser, getNotesForUser, saveNote, deleteNote } from '@/lib/db';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Users, EyeOff, Heart, PenTool, Lightbulb, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Users, EyeOff, Heart, PenTool, Lightbulb, CheckCircle, ArrowLeft, Plus, Edit3, Trash2, X } from 'lucide-react';
 
 export default function MatePage() {
   const [currentUser, setUserState] = useState<User | null>(null);
   const [mates, setMates] = useState<User[]>([]);
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [mateNotesMap, setMateNotesMap] = useState<Record<string, PrivateNote[]>>({});
   const [editingMateId, setEditingMateId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [tempNote, setTempNote] = useState<string>('');
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
   const [configError, setConfigError] = useState(false);
@@ -38,11 +39,12 @@ export default function MatePage() {
 
           setMates(matesRes.mates || []);
 
-          const noteMap: Record<string, string> = {};
+          const grouped: Record<string, PrivateNote[]> = {};
           (notesRes.notes || []).forEach(n => {
-            noteMap[n.targetUserId] = n.content;
+            if (!grouped[n.targetUserId]) grouped[n.targetUserId] = [];
+            grouped[n.targetUserId].push(n);
           });
-          setNotes(noteMap);
+          setMateNotesMap(grouped);
         }
       } finally {
         setIsLoading(false);
@@ -51,22 +53,66 @@ export default function MatePage() {
     loadData();
   }, []);
 
-  const handleOpenNoteEditor = (targetUser: User) => {
+  const handleOpenAddEditor = (targetUser: User) => {
     setEditingMateId(targetUser.id);
-    setTempNote(notes[targetUser.id] || '');
+    setEditingNoteId(null);
+    setTempNote('');
+  };
+
+  const handleOpenEditEditor = (targetUser: User, note: PrivateNote) => {
+    setEditingMateId(targetUser.id);
+    setEditingNoteId(note.id);
+    setTempNote(note.content);
+  };
+
+  const handleCancelEditor = () => {
+    setEditingMateId(null);
+    setEditingNoteId(null);
+    setTempNote('');
   };
 
   const handleSaveNote = async (targetUserId: string) => {
-    if (!currentUser) return;
-    const res = await saveNote(currentUser.id, targetUserId, tempNote);
+    if (!currentUser || !tempNote.trim()) return;
+    const res = await saveNote(currentUser.id, targetUserId, tempNote.trim(), editingNoteId || undefined);
     if (res.error === 'SUPABASE_UNCONFIGURED') {
       setConfigError(true);
       return;
     }
-    setNotes(prev => ({ ...prev, [targetUserId]: tempNote }));
+
+    // Refresh notes
+    const notesRes = await getNotesForUser(currentUser.id);
+    const grouped: Record<string, PrivateNote[]> = {};
+    (notesRes.notes || []).forEach(n => {
+      if (!grouped[n.targetUserId]) grouped[n.targetUserId] = [];
+      grouped[n.targetUserId].push(n);
+    });
+    setMateNotesMap(grouped);
+
     setEditingMateId(null);
+    setEditingNoteId(null);
+    setTempNote('');
     setSavedSuccess(targetUserId);
     setTimeout(() => setSavedSuccess(null), 3000);
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!currentUser) return;
+    if (!window.confirm('이 관찰 메모를 삭제하시겠습니까?')) return;
+
+    await deleteNote(currentUser.id, noteId);
+    const notesRes = await getNotesForUser(currentUser.id);
+    const grouped: Record<string, PrivateNote[]> = {};
+    (notesRes.notes || []).forEach(n => {
+      if (!grouped[n.targetUserId]) grouped[n.targetUserId] = [];
+      grouped[n.targetUserId].push(n);
+    });
+    setMateNotesMap(grouped);
+
+    if (editingNoteId === noteId) {
+      setEditingMateId(null);
+      setEditingNoteId(null);
+      setTempNote('');
+    }
   };
 
   if (configError) {
@@ -150,7 +196,7 @@ export default function MatePage() {
             </div>
           ) : (
             mates.map((mate, index) => {
-              const noteContent = notes[mate.id] || '';
+              const mateNotes = mateNotesMap[mate.id] || [];
               const isEditing = editingMateId === mate.id;
 
               return (
@@ -180,58 +226,94 @@ export default function MatePage() {
                     </div>
                   </div>
 
-                  {/* Note Section */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+                  {/* Multi-Note Section */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                         <PenTool className="w-3.5 h-3.5 text-emerald-500" />
-                        나만의 비공개 관찰 메모
+                        나만의 비공개 관찰 메모 ({mateNotes.length}개)
                       </span>
                       {!isEditing && (
                         <button
-                          onClick={() => handleOpenNoteEditor(mate)}
-                          className="text-[11px] font-bold text-emerald-600 hover:underline"
+                          onClick={() => handleOpenAddEditor(mate)}
+                          className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
                         >
-                          {noteContent ? '수정' : '+ 작성하기'}
+                          <Plus className="w-3.5 h-3.5" /> 새 메모 추가
                         </button>
                       )}
                     </div>
 
+                    {/* Edit / Add Form */}
                     {isEditing ? (
-                      <div className="flex flex-col gap-2 mt-1">
+                      <div className="flex flex-col gap-2 mt-0.5 p-3 rounded-xl bg-white border border-emerald-200">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                          <span>{editingNoteId ? '관찰 메모 수정' : '+ 새 관찰 메모 작성'}</span>
+                          <button
+                            onClick={handleCancelEditor}
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <textarea
                           value={tempNote}
                           onChange={(e) => setTempNote(e.target.value)}
                           placeholder="동료의 좋은 점이나 칭찬거리 아이디어를 비공개로 적어두세요..."
-                          className="w-full p-2.5 rounded-xl border border-emerald-200 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 h-20 resize-none"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 h-20 resize-none"
                         />
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => setEditingMateId(null)}
-                            className="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg"
+                            onClick={handleCancelEditor}
+                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg"
                           >
                             취소
                           </button>
                           <button
                             onClick={() => handleSaveNote(mate.id)}
-                            className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-xs"
+                            disabled={!tempNote.trim()}
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1"
                           >
-                            저장
+                            <span>저장</span>
                           </button>
                         </div>
                       </div>
-                    ) : (
-                      <div>
-                        {noteContent ? (
-                          <p className="text-xs text-slate-700 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-slate-100">
-                            &ldquo;{noteContent}&rdquo;
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-slate-400 italic">
-                            아직 적어둔 메모가 없습니다. 칭찬할만한 좋은 점을 적어두세요.
-                          </p>
-                        )}
+                    ) : null}
+
+                    {/* Notes List */}
+                    {mateNotes.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {mateNotes.map((mn) => (
+                          <div
+                            key={mn.id}
+                            className="p-2.5 rounded-xl bg-white border border-slate-100 text-xs flex flex-col gap-1.5 shadow-2xs"
+                          >
+                            <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                              &ldquo;{mn.content}&rdquo;
+                            </p>
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-50 text-[10px] text-slate-400">
+                              <span>{new Date(mn.updatedAt).toLocaleDateString()}</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleOpenEditEditor(mate, mn)}
+                                  className="font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                                >
+                                  <Edit3 className="w-3 h-3" /> 수정
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteNote(mn.id)}
+                                  className="font-bold text-rose-500 hover:underline flex items-center gap-0.5"
+                                >
+                                  <Trash2 className="w-3 h-3" /> 삭제
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    ) : !isEditing && (
+                      <p className="text-[11px] text-slate-400 italic py-1">
+                        아직 적어둔 메모가 없습니다. 칭찬할만한 좋은 점을 비공개로 적어보세요.
+                      </p>
                     )}
 
                     {savedSuccess === mate.id && (
