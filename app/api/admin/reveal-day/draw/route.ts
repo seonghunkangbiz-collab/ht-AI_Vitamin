@@ -39,12 +39,15 @@ export async function GET(request: Request) {
     // 2. Calculate eligible candidate count (including additional members: 이현서, 최지훈)
     let totalEligible = 0;
     if (isRehearsal) {
-      totalEligible = REHEARSAL_USERS.length + ADDITIONAL_LUCKY_DRAW_MEMBERS.length;
+      const extraCount = ADDITIONAL_LUCKY_DRAW_MEMBERS.filter(
+        extra => !REHEARSAL_USERS.some(u => u.name === extra.name || u.id === extra.id)
+      ).length;
+      totalEligible = REHEARSAL_USERS.length + extraCount;
     } else {
       const { data: users } = await supabase.from('users').select('id, name, role');
       const activeUsers = (users || []).filter(u => u.role !== 'admin');
       const extraCount = ADDITIONAL_LUCKY_DRAW_MEMBERS.filter(
-        extra => !activeUsers.some(u => u.name === extra.name)
+        extra => !activeUsers.some(u => u.name === extra.name || u.id === extra.id)
       ).length;
       totalEligible = activeUsers.length + extraCount;
     }

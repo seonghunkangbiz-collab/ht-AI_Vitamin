@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import type { RevealDrawItem } from './types';
 import { REHEARSAL_USERS } from './rehearsal-data';
+import { INITIAL_USERS } from '@/lib/seedData';
 
 export interface DrawOptions {
   eventId: string;
@@ -98,16 +99,21 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
   // 2. Fetch candidate pool
   let candidates: CandidateUser[] = [];
 
-  // Try fetching actual users from database to ensure valid foreign keys
-  const { data: dbUsers } = await supabase
-    .from('users')
-    .select('id, name, team, role')
-    .neq('role', 'admin');
-
-  if (dbUsers && dbUsers.length > 0) {
-    candidates = dbUsers.map(u => ({ id: u.id, name: u.name, team: u.team }));
-  } else {
+  if (isRehearsal) {
+    // In rehearsal mode, use REHEARSAL_USERS
     candidates = REHEARSAL_USERS.map(u => ({ id: u.id, name: u.name, team: u.team }));
+  } else {
+    // In live mode, fetch users from database excluding admin
+    const { data: dbUsers } = await supabase
+      .from('users')
+      .select('id, name, team, role');
+
+    const nonAdminUsers = (dbUsers || []).filter(u => u.role !== 'admin');
+    if (nonAdminUsers.length > 0) {
+      candidates = nonAdminUsers.map(u => ({ id: u.id, name: u.name, team: u.team }));
+    } else {
+      candidates = REHEARSAL_USERS.map(u => ({ id: u.id, name: u.name, team: u.team }));
+    }
   }
 
   // Ensure additional non-program lucky draw attendees (반도체Global사업개발팀 이현서, 최지훈) are included in candidate pool
@@ -238,12 +244,41 @@ export async function executeServerDraw(options: DrawOptions): Promise<{ draw: R
     .maybeSingle();
 
   if (!userExists) {
+    const seedUser = INITIAL_USERS.find(u => u.id === winner.id || u.name === winner.name);
     await supabase.from('users').upsert({
       id: winner.id,
       name: winner.name,
       team: winner.team,
       role: 'user',
-      code: `VIT-MEMBER-${winner.id.slice(-4).toUpperCase()}`
+      code: seedUser?.code || `VIT-MEMBER-${winner.id.slice(-4).toUpperCase()}`
+    });
+  }
+
+  // Defensive Foreign Key Check: Guarantee event exists in reveal_events before insert
+  const { data: eventExists } = await supabase
+    .from('reveal_events')
+    .select('id')
+    .eq('id', options.eventId)
+    .maybeSingle();
+
+  if (!eventExists) {
+    const isReh = options.eventId.includes('rehearsal');
+    await supabase.from('reveal_events').upsert({
+      id: options.eventId,
+      mode: isReh ? 'rehearsal' : 'live',
+      status: isReh ? 'rehearsal' : 'ready',
+      title: isReh ? '[리허설] HT사업본부 AI Vitamin Program – Reveal Day' : 'HT사업본부 AI Vitamin Program – Reveal Day',
+      concept: 'Connecting People, Growing Together',
+      scheduled_at: '2026-10-28 16:00:00+09',
+      cutoff_at: '2026-10-27 23:59:59+09',
+      current_segment: 'lucky_draw',
+      current_reveal_index: 0,
+      current_batch_index: 0,
+      version: 1,
+      is_blackout: false,
+      is_holding: false,
+      created_at: now,
+      updated_at: now
     });
   }
 
