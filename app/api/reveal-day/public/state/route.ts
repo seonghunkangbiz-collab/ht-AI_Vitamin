@@ -46,13 +46,26 @@ export async function GET(request: Request) {
 
     // 2. Fetch Latest Snapshot Stats if Journey or Opening segment
     let snapshotStats: any = null;
-    const { data: snapshot } = await supabase
+    let { data: snapshot } = await supabase
       .from('reveal_snapshots')
       .select('stats_payload, cutoff_at, data_hash, version')
       .eq('event_id', eventId)
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (!snapshot) {
+      // Fallback: check any latest snapshot regardless of eventId (e.g. rehearsal borrowing latest snapshot)
+      const { data: anySnapshot } = await supabase
+        .from('reveal_snapshots')
+        .select('stats_payload, cutoff_at, data_hash, version')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (anySnapshot) {
+        snapshot = anySnapshot;
+      }
+    }
 
     if (snapshot) {
       snapshotStats = {

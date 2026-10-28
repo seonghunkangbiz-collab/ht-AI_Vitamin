@@ -33,10 +33,29 @@ export async function GET() {
       .select('id, role');
     const totalUserCount = (allUsers || []).filter(u => u.role !== 'admin').length;
 
-    // 3. Fetch Private Notes Count
-    const { count: totalNoteCount } = await supabase
-      .from('private_notes')
-      .select('*', { count: 'exact', head: true });
+    // 3. Fetch Private Notes Count (integrating private_note_history and private_notes)
+    const { data: pnhRows } = await supabase
+      .from('private_note_history')
+      .select('note_id, change_type')
+      .order('created_at', { ascending: true });
+
+    let totalNoteCount = 0;
+    if (pnhRows && pnhRows.length > 0) {
+      const activeNotes = new Set<string>();
+      for (const h of pnhRows) {
+        if (h.change_type === 'delete') {
+          activeNotes.delete(h.note_id);
+        } else {
+          activeNotes.add(h.note_id);
+        }
+      }
+      totalNoteCount = activeNotes.size;
+    } else {
+      const { count } = await supabase
+        .from('private_notes')
+        .select('*', { count: 'exact', head: true });
+      totalNoteCount = count || 0;
+    }
 
     // 4. Fetch App State (reveal_date & wall_view_count)
     const { data: revealDateRow } = await supabase

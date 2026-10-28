@@ -41,14 +41,45 @@ export async function generateOfficialSnapshot(options: SnapshotGenerationOption
 
   const praises = allPraises || [];
 
-  // 3. Fetch Notes up to Cutoff
-  const { data: allNotes, error: noteErr } = await supabase
+  // 3. Fetch Notes up to Cutoff (integrating private_notes and private_note_history)
+  const { data: allNotes } = await supabase
     .from('private_notes')
     .select('id, user_id, target_user_id, content, updated_at')
     .lte('updated_at', cutoffDate.toISOString());
-  if (noteErr) throw new Error(`Snapshot failed to fetch notes: ${noteErr.message}`);
 
-  const notes = allNotes || [];
+  const { data: historyRows } = await supabase
+    .from('private_note_history')
+    .select('note_id, user_id, target_user_id, content, change_type, created_at')
+    .lte('created_at', cutoffDate.toISOString())
+    .order('created_at', { ascending: true });
+
+  const activeNotesMap = new Map<string, { id: string; user_id: string; target_user_id: string; content: string; updated_at: string }>();
+
+  if (historyRows) {
+    for (const h of historyRows) {
+      if (h.change_type === 'delete') {
+        activeNotesMap.delete(h.note_id);
+      } else {
+        activeNotesMap.set(h.note_id, {
+          id: h.note_id,
+          user_id: h.user_id,
+          target_user_id: h.target_user_id,
+          content: h.content,
+          updated_at: h.created_at
+        });
+      }
+    }
+  }
+
+  if (allNotes) {
+    for (const n of allNotes) {
+      if (!activeNotesMap.has(n.id)) {
+        activeNotesMap.set(n.id, n);
+      }
+    }
+  }
+
+  const notes = Array.from(activeNotesMap.values());
 
   // 4. Fetch Wall View Count from app_state
   const { data: wallState } = await supabase

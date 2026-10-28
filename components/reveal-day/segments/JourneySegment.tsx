@@ -20,21 +20,22 @@ interface JourneySegmentProps {
 
 export default function JourneySegment({ stats }: JourneySegmentProps) {
   const fallbackStats = {
-    totalUsers: 24,
-    totalPraises: 39,
-    weeklyPraises: 12,
-    totalNotes: 3,
-    wallViews: 118,
+    totalUsers: 26,
+    totalPraises: 68,
+    weeklyPraises: 27,
+    totalNotes: 31,
+    wallViews: 142,
     teamStats: {
-      '전략사업개발팀': { praiseGiven: 18, praiseReceived: 16, userCount: 11 },
-      'Global사업개발팀': { praiseGiven: 12, praiseReceived: 14, userCount: 5 },
-      'AX 사업개발팀': { praiseGiven: 9, praiseReceived: 9, userCount: 8 }
+      '반도체전략사업개발팀': { praiseGiven: 17, praiseReceived: 23, userCount: 11 },
+      '반도체AX사업개발팀': { praiseGiven: 31, praiseReceived: 23, userCount: 7 },
+      '반도체Global사업개발팀': { praiseGiven: 17, praiseReceived: 18, userCount: 7 },
+      'Hi-Tech 사업본부': { praiseGiven: 3, praiseReceived: 4, userCount: 1 }
     },
     keywords: ['협업과 배려', '신뢰와 책임', '문제해결', '전문성', '긍정에너지', '팀워크', '열정'],
     approvedQuotes: [
-      { id: '1', content: '복잡한 이슈 속에서도 항상 침착하고 긍정적인 태도로 해결책을 이끌어 주셔서 큰 귀감이 되었습니다.', team: 'AX 사업개발팀' },
-      { id: '2', content: '다른 팀의 긴급한 지원 요청에도 두 팔 걷고 나서주시는 배려에 깊은 감동을 받았습니다.', team: '전략사업개발팀' },
-      { id: '3', content: '보이지 않는 곳에서도 프로젝트의 기초를 묵묵히 다져주시는 노고에 언제나 감사드립니다.', team: 'Global사업개발팀' }
+      { id: '1', content: '복잡한 이슈 속에서도 항상 침착하고 긍정적인 태도로 해결책을 이끌어 주셔서 큰 귀감이 되었습니다.', team: '반도체AX사업개발팀' },
+      { id: '2', content: '다른 팀의 긴급한 지원 요청에도 두 팔 걷고 나서주시는 배려에 깊은 감동을 받았습니다.', team: '반도체전략사업개발팀' },
+      { id: '3', content: '보이지 않는 곳에서도 프로젝트의 기초를 묵묵히 다져주시는 노고에 언제나 감사드립니다.', team: '반도체Global사업개발팀' }
     ],
     cutoffAt: '2026-10-27 23:59:59 (KST)'
   };

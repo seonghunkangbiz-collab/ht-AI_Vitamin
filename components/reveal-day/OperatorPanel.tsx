@@ -40,6 +40,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
+import { saveLocalVideoToDB, getLocalVideoFromDB, clearLocalVideoFromDB } from '@/lib/reveal-day/local-video-storage';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 interface OperatorPanelProps {
@@ -118,6 +119,14 @@ export default function OperatorPanel({
         setVideoUrl(savedUrl);
         setInputVideoUrl(savedUrl);
       }
+      // Check if local video exists in IndexedDB
+      getLocalVideoFromDB().then((res) => {
+        if (res && res.blobUrl) {
+          setVideoUrl(res.blobUrl);
+          setInputVideoUrl(res.name);
+          setSongMode('video');
+        }
+      });
     } catch {}
   }, []);
 
@@ -127,20 +136,47 @@ export default function OperatorPanel({
 
     setIsUploadingVideo(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/reveal-day/video-file', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.success && data.webUrl) {
-        sendBroadcastVideoUrl(data.webUrl);
-      } else {
-        alert(data.message || '동영상 파일 처리에 실패했습니다.');
+      // 1. Save directly into browser IndexedDB (zero network upload, no 4.5MB Vercel limit, instant playback)
+      const blobUrl = await saveLocalVideoToDB(file);
+
+      // 2. Broadcast to other tabs on the same origin (e.g. Beam Display tab on dual monitor)
+      try {
+        const bc = new BroadcastChannel('reveal_local_video_channel');
+        bc.postMessage({ type: 'VIDEO_UPDATED', fileName: file.name, fileSize: file.size });
+        bc.close();
+      } catch {}
+
+      // 3. Update local operator state
+      setInputVideoUrl(file.name);
+      setVideoUrl(blobUrl);
+      setSongMode('video');
+
+      try {
+        localStorage.setItem('reveal_day_video_url', blobUrl);
+        localStorage.setItem('reveal_day_song_mode', 'video');
+        localStorage.setItem('reveal_day_local_filename', file.name);
+      } catch {}
+
+      // 4. Broadcast via Supabase to notify the Beam screen
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: {
+            action: 'set_video_url',
+            videoUrl: blobUrl,
+            mode: 'video',
+            fileName: file.name,
+            isLocalFile: true,
+          },
+        });
       }
+
+      setVideoBroadcastSuccess(true);
+      setTimeout(() => setVideoBroadcastSuccess(false), 2500);
     } catch (err: any) {
-      alert('파일 업로드 중 오류가 발생했습니다: ' + err.message);
+      alert('동영상 로딩 중 오류가 발생했습니다: ' + err.message);
     } finally {
       setIsUploadingVideo(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -830,7 +866,25 @@ export default function OperatorPanel({
                           onClick={() => {
                             setVideoUrl('');
                             setInputVideoUrl('');
-                            try { localStorage.removeItem('reveal_day_video_url'); } catch {}
+                            clearLocalVideoFromDB();
+                            try {
+                              localStorage.removeItem('reveal_day_video_url');
+                              localStorage.removeItem('reveal_day_local_filename');
+                              const bc = new BroadcastChannel('reveal_local_video_channel');
+                              bc.postMessage({ type: 'VIDEO_CLEARED' });
+                              bc.close();
+                            } catch {}
+                            try {
+                              if (isSupabaseConfigured()) {
+                                getSupabaseClient()
+                                  .channel(`reveal_channel_${publicState.eventId}`)
+                                  .send({
+                                    type: 'broadcast',
+                                    event: 'song_control',
+                                    payload: { action: 'set_video_url', videoUrl: '', mode: 'video' },
+                                  });
+                              }
+                            } catch {}
                           }}
                           className="text-slate-500 hover:text-rose-400 font-bold text-[10px]"
                         >

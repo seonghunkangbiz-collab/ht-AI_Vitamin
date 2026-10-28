@@ -37,6 +37,7 @@ export function resolveLocalVideoPath(rawPath: string): string | null {
     path.resolve(process.cwd(), 'public', cleaned.replace(/^\/+/, '')),
     path.resolve(process.cwd(), 'public', 'video', path.basename(cleaned)),
     path.resolve(process.cwd(), 'public', 'video', cleaned),
+    path.resolve(os.tmpdir(), 'reveal_videos', path.basename(cleaned)),
   ];
 
   for (const candidate of candidates) {

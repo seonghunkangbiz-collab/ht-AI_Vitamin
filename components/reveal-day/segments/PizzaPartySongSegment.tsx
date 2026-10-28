@@ -33,6 +33,7 @@ import {
 import Link from 'next/link';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 import { AI_VITAMIN_PLAYLIST, SongTrack, LyricSection, parseVideoUrl, ParsedVideoInfo } from '@/lib/reveal-day/song-playlist';
+import { saveLocalVideoToDB, getLocalVideoFromDB, clearLocalVideoFromDB } from '@/lib/reveal-day/local-video-storage';
 
 interface PizzaPartySongSegmentProps {
   eventId?: string;
@@ -127,7 +128,7 @@ export default function PizzaPartySongSegment({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const displayFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Initialize saved mode & video URL from LocalStorage
+  // Initialize saved mode & video URL from LocalStorage and IndexedDB
   useEffect(() => {
     try {
       const savedMode = localStorage.getItem('reveal_day_song_mode');
@@ -139,7 +140,54 @@ export default function PizzaPartySongSegment({
         setVideoUrl(savedUrl);
         setParsedVideo(parseVideoUrl(savedUrl));
       }
+      // Check IndexedDB for locally stored MP4 video
+      getLocalVideoFromDB().then((res) => {
+        if (res && res.blobUrl) {
+          setVideoUrl(res.blobUrl);
+          setParsedVideo({
+            type: 'local',
+            embedUrl: res.blobUrl,
+            originalUrl: res.name,
+            fileName: res.name,
+            isValid: true,
+          });
+        }
+      });
     } catch {}
+  }, []);
+
+  // Realtime BroadcastChannel listener for local browser tabs (same PC / dual monitors)
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('reveal_local_video_channel');
+      bc.onmessage = async (e) => {
+        if (e.data?.type === 'VIDEO_UPDATED') {
+          const localData = await getLocalVideoFromDB();
+          if (localData?.blobUrl) {
+            setVideoUrl(localData.blobUrl);
+            setParsedVideo({
+              type: 'local',
+              embedUrl: localData.blobUrl,
+              originalUrl: localData.name,
+              fileName: localData.name,
+              isValid: true,
+            });
+            setDisplayMode('video');
+            audioRef.current?.pause();
+            setIsPlaying(false);
+          }
+        } else if (e.data?.type === 'VIDEO_CLEARED') {
+          setVideoUrl('');
+          setParsedVideo(parseVideoUrl(''));
+        }
+      };
+    } catch {}
+    return () => {
+      try {
+        bc?.close();
+      } catch {}
+    };
   }, []);
 
   const handleDisplayFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,21 +196,53 @@ export default function PizzaPartySongSegment({
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/reveal-day/video-file', {
-        method: 'POST',
-        body: formData,
+      // 1. Save directly into browser IndexedDB (zero network upload, no 4.5MB Vercel limit, instant playback)
+      const blobUrl = await saveLocalVideoToDB(file);
+
+      // 2. Set active video state
+      setParsedVideo({
+        type: 'local',
+        embedUrl: blobUrl,
+        originalUrl: file.name,
+        fileName: file.name,
+        isValid: true,
       });
-      const data = await res.json();
-      if (data.success && data.webUrl) {
-        handleUpdateVideoUrl(data.webUrl);
-        setShowManualInput(false);
-      } else {
-        alert(data.message || '동영상 파일 처리에 실패했습니다.');
-      }
+      setVideoUrl(blobUrl);
+      setDisplayMode('video');
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      setShowManualInput(false);
+
+      try {
+        localStorage.setItem('reveal_day_video_url', blobUrl);
+        localStorage.setItem('reveal_day_song_mode', 'video');
+        localStorage.setItem('reveal_day_local_filename', file.name);
+
+        // 3. Broadcast to other tabs on the same origin (e.g. Operator Panel tab)
+        const bc = new BroadcastChannel('reveal_local_video_channel');
+        bc.postMessage({ type: 'VIDEO_UPDATED', fileName: file.name, fileSize: file.size });
+        bc.close();
+      } catch {}
+
+      // 4. Broadcast via Supabase channel
+      try {
+        if (isSupabaseConfigured()) {
+          const sb = getSupabaseClient();
+          sb.channel(`reveal_channel_${eventId}`).send({
+            type: 'broadcast',
+            event: 'song_control',
+            payload: {
+              action: 'set_video_url',
+              videoUrl: blobUrl,
+              mode: 'video',
+              fileName: file.name,
+              isLocalFile: true,
+            },
+          });
+        }
+      } catch {}
     } catch (err: any) {
-      alert('파일 업로드 중 오류가 발생했습니다: ' + err.message);
+      alert('동영상 로딩 중 오류가 발생했습니다: ' + err.message);
     } finally {
       setIsUploading(false);
       if (displayFileInputRef.current) displayFileInputRef.current.value = '';
@@ -258,10 +338,28 @@ export default function PizzaPartySongSegment({
               setParsedVideo(parseVideoUrl(data.videoUrl));
               try { localStorage.setItem('reveal_day_video_url', data.videoUrl); } catch {}
             }
-          } else if (data.action === 'set_video_url' && typeof data.videoUrl === 'string') {
-            setVideoUrl(data.videoUrl);
-            setParsedVideo(parseVideoUrl(data.videoUrl));
-            try { localStorage.setItem('reveal_day_video_url', data.videoUrl); } catch {}
+          } else if (data.action === 'set_video_url') {
+            if (data.isLocalFile) {
+              getLocalVideoFromDB().then((localData) => {
+                if (localData?.blobUrl) {
+                  setVideoUrl(localData.blobUrl);
+                  setParsedVideo({
+                    type: 'local',
+                    embedUrl: localData.blobUrl,
+                    originalUrl: localData.name,
+                    fileName: localData.name,
+                    isValid: true,
+                  });
+                } else if (typeof data.videoUrl === 'string') {
+                  setVideoUrl(data.videoUrl);
+                  setParsedVideo(parseVideoUrl(data.videoUrl));
+                }
+              });
+            } else if (typeof data.videoUrl === 'string') {
+              setVideoUrl(data.videoUrl);
+              setParsedVideo(parseVideoUrl(data.videoUrl));
+              try { localStorage.setItem('reveal_day_video_url', data.videoUrl); } catch {}
+            }
             if (data.mode === 'video' || data.mode === 'audio') {
               setDisplayMode(data.mode);
               try { localStorage.setItem('reveal_day_song_mode', data.mode); } catch {}

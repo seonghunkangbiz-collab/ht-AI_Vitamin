@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { Readable } from 'stream';
 import { resolveLocalVideoPath, ALLOWED_EXTENSIONS, MIME_MAP } from '@/lib/reveal-day/video-resolver';
 
@@ -137,23 +138,40 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     const uploadDir = path.resolve(process.cwd(), 'public', 'video');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+      const targetPath = path.join(uploadDir, safeName);
+      fs.writeFileSync(targetPath, buffer);
+
+      const relativePublicPath = `/video/${safeName}`;
+
+      return NextResponse.json({
+        success: true,
+        fileName: safeName,
+        localPath: targetPath,
+        webUrl: `/api/reveal-day/video-file?path=${encodeURIComponent(targetPath)}`,
+        publicUrl: relativePublicPath,
+      });
+    } catch {
+      // In serverless environments with read-only root filesystem, fallback to /tmp
+      const tmpDir = path.resolve(os.tmpdir(), 'reveal_videos');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+      const tmpPath = path.join(tmpDir, safeName);
+      fs.writeFileSync(tmpPath, buffer);
+
+      return NextResponse.json({
+        success: true,
+        fileName: safeName,
+        localPath: tmpPath,
+        webUrl: `/api/reveal-day/video-file?path=${encodeURIComponent(tmpPath)}`,
+      });
     }
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
-    const targetPath = path.join(uploadDir, safeName);
-    fs.writeFileSync(targetPath, buffer);
-
-    const relativePublicPath = `/video/${safeName}`;
-
-    return NextResponse.json({
-      success: true,
-      fileName: safeName,
-      localPath: targetPath,
-      webUrl: `/api/reveal-day/video-file?path=${encodeURIComponent(targetPath)}`,
-      publicUrl: relativePublicPath,
-    });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'UPLOAD_FAILED' }, { status: 500 });
   }
