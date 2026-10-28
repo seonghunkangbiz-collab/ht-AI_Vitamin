@@ -132,7 +132,7 @@ export default function PizzaPartySongSegment({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isRemoteVideoActionRef = useRef<boolean>(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
 
@@ -943,7 +943,6 @@ export default function PizzaPartySongSegment({
                     ref={videoRef}
                     src={parsedVideo.embedUrl}
                     controls
-                    autoPlay
                     loop
                     playsInline
                     onPlay={() => {

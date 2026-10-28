@@ -108,7 +108,7 @@ export default function OperatorPanel({
   const [showLyricsPreview, setShowLyricsPreview] = useState<boolean>(false);
 
   // Video Playback Synchronization State for Operator
-  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const operatorVideoRef = React.useRef<HTMLVideoElement | null>(null);
