@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/auth/session';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { REHEARSAL_MATE_PAIRS } from '@/lib/reveal-day/rehearsal-data';
 import { MatePairReveal } from '@/lib/reveal-day/types';
-import { INITIAL_NOTES } from '@/lib/seedData';
+import { INITIAL_NOTES, INITIAL_PRAISES } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -79,48 +79,60 @@ async function getEventMatePairs(eventId: string): Promise<MatePairReveal[]> {
 
   // Group by target user to maintain clean batches
   activeUsers.forEach((target, targetIdx) => {
-    let targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
+    // Observers who actually wrote notes for this target
+    const noteObservers = Array.from(noteMap.keys())
+      .filter(k => k.endsWith(`->${target.id}`))
+      .map(k => k.split('->')[0]);
 
-    // Ensure EVERY participant has EXACTLY 2 secret mates (supplement if fewer than 2)
-    if (targetAssignments.length < 2) {
-      const candidates = activeUsers.filter(
-        u => u.id !== target.id && !targetAssignments.some(a => a.user_id === u.id)
-      );
-      const crossTeam = candidates.filter(u => u.team !== target.team);
-      const pool = crossTeam.length >= 2 ? crossTeam : candidates;
-      while (targetAssignments.length < 2 && pool.length > 0) {
-        const nextObs = pool[(targetIdx * 5 + targetAssignments.length * 7) % pool.length];
-        targetAssignments.push({
-          id: `m-live-supp-${target.id}-${targetAssignments.length + 1}`,
-          user_id: nextObs.id,
-          target_user_id: target.id,
-          assigned_at: '2026-09-09T03:16:26.732Z'
-        });
+    // Observers who sent praises to this target
+    const praiseObservers = (praises || [])
+      .filter(p => p.recipient_user_id === target.id && (p.content?.trim() || p.refined_content?.trim()))
+      .map(p => p.sender_user_id);
+
+    // Observers from initial assignments
+    const assignedObservers = (assignments || [])
+      .filter(a => a.target_user_id === target.id)
+      .map(a => a.user_id);
+
+    // Combine distinct candidate observer IDs (exclude self and recent joins)
+    const candidateIds = Array.from(new Set([
+      ...noteObservers,
+      ...praiseObservers,
+      ...assignedObservers
+    ])).filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
+
+    // Ensure candidate pool has at least 2 distinct observers
+    const otherCandidates = activeUsers.filter(u => u.id !== target.id && !candidateIds.includes(u.id));
+    const crossTeam = otherCandidates.filter(u => u.team !== target.team);
+    const supplementPool = crossTeam.length >= 2 ? crossTeam : otherCandidates;
+
+    let suppIdx = 0;
+    while (candidateIds.length < 2 && supplementPool.length > 0) {
+      const nextUid = supplementPool[(targetIdx * 5 + suppIdx * 7) % supplementPool.length].id;
+      if (!candidateIds.includes(nextUid)) {
+        candidateIds.push(nextUid);
       }
+      suppIdx++;
     }
 
-    // Prioritize observers with latest notes, then praises, take exactly 2
-    const selectedAssignments = targetAssignments
-      .sort((a, b) => {
-        const hasNoteA = noteMap.has(`${a.user_id}->${target.id}`) ? 2 : 0;
-        const hasNoteB = noteMap.has(`${b.user_id}->${target.id}`) ? 2 : 0;
-        const hasPraiseA = (praises || []).some(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id) ? 1 : 0;
-        const hasPraiseB = (praises || []).some(p => p.sender_user_id === b.user_id && p.recipient_user_id === target.id) ? 1 : 0;
-        return (hasNoteB + hasPraiseB) - (hasNoteA + hasPraiseA);
-      })
-      .slice(0, 2);
+    // Sort candidates: Note author = 20 pts, Praise sender = 5 pts, Initial assignment = 2 pts
+    const selectedObserverIds = candidateIds.sort((a, b) => {
+      const scoreA = (noteObservers.includes(a) ? 20 : 0) + (praiseObservers.includes(a) ? 5 : 0) + (assignedObservers.includes(a) ? 2 : 0);
+      const scoreB = (noteObservers.includes(b) ? 20 : 0) + (praiseObservers.includes(b) ? 5 : 0) + (assignedObservers.includes(b) ? 2 : 0);
+      return scoreB - scoreA;
+    }).slice(0, 2);
 
     const batchIndex = Math.floor(targetIdx / 4); // Batches of 4 targets each
 
-    selectedAssignments.forEach(a => {
-      const observer = userMap.get(a.user_id);
-      const matchedPraise = (praises || []).find(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
-      const latestNote = noteMap.get(`${a.user_id}->${target.id}`) || '';
+    selectedObserverIds.forEach(obsId => {
+      const observer = userMap.get(obsId);
+      const matchedPraise = (praises || []).find(p => p.sender_user_id === obsId && p.recipient_user_id === target.id);
+      const latestNote = noteMap.get(`${obsId}->${target.id}`) || '';
 
       pairs.push({
-        id: a.id,
+        id: `admin-pair-${target.id}-${obsId}`,
         batchIndex,
-        observerId: a.user_id,
+        observerId: obsId,
         observerName: observer?.name || '익명 메이트',
         observerTeam: observer?.team || '',
         targetId: target.id,

@@ -603,12 +603,12 @@ test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', as
   assert.ok(kangTargetIds.includes('user-06'), 'Kang Seong-hun took care of Kim Jeong-soo (user-06)');
 
   // 2. On the Reveal Day stage:
-  // For Target Kang Seong-hun ('user-15'), the revealed observers MUST be the ones who took care of him (이원용 user-04, 김유진 user-05)
+  // For Target Kang Seong-hun ('user-15'), the revealed observers MUST be the ones who took care of him (이상길 user-10 with real note, 마석현 user-17 with real praise)
   const kangCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-15');
   assert.equal(kangCardPairs.length, 2, 'Kang Seong-hun has exactly 2 secret mates watching him');
   const kangObserverNames = kangCardPairs.map(p => p.observerName);
-  assert.ok(kangObserverNames.includes('이원용'), 'Lee Won-yong is one of Kang Seong-hun secret mates');
-  assert.ok(kangObserverNames.includes('김유진'), 'Kim Yu-jin is one of Kang Seong-hun secret mates');
+  assert.ok(kangObserverNames.includes('이상길'), 'Lee Sang-gil is one of Kang Seong-hun secret mates with real note');
+  assert.ok(kangObserverNames.includes('마석현'), 'Ma Seok-hyun is one of Kang Seong-hun secret mates with real praise');
 
   // 3. And under Target Hong Tae-young and Target Kim Jeong-soo, Kang Seong-hun is revealed as their secret mate!
   const hongCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-01');
@@ -624,9 +624,9 @@ test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', as
   assert.equal(defaultGuessedPairs.length, 0, 'No pairs should be falsely marked as guessed without real attendee action');
 
   // 5. Guess Matching logic: Only matching guess returns true
-  const guessMap = new Map([['user-15', 'user-04']]); // Kang Seong-hun guessed Lee Won-yong
-  const pair1Guessed = guessMap.get('user-15') === 'user-04'; // Match!
-  const pair2Guessed = guessMap.get('user-15') === 'user-05'; // Not guessed
+  const guessMap = new Map([['user-15', 'user-10']]); // Kang Seong-hun guessed Lee Sang-gil
+  const pair1Guessed = guessMap.get('user-15') === 'user-10'; // Match!
+  const pair2Guessed = guessMap.get('user-15') === 'user-17'; // Not guessed
   assert.equal(pair1Guessed, true, 'Guessing actual observer returns true');
   assert.equal(pair2Guessed, false, 'Unmatched observer returns false');
 });
@@ -691,7 +691,7 @@ test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recom
   assert.ok(hongKangPair, 'Kang Seong-hun must be an observer for Hong Tae-young');
   assert.equal(
     hongKangPair?.noteMessage,
-    '매우 바쁨, 고민이 많아 보임. ',
+    '매우 바쁨, 고민이 많아 보임.',
     'Hong Tae-young card must show Kang Seong-hun latest observation note'
   );
 
@@ -702,7 +702,7 @@ test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recom
   assert.ok(kimKangPair, 'Kang Seong-hun must be an observer for Kim Jeong-soo');
   assert.equal(
     kimKangPair?.noteMessage,
-    '젠틀한 모습, 멋진 목소리, 고3 라이딩 화이팅!',
+    '청주 P&T 보다 결기가 중요합니다. !\n따님 수능 합격기원 ㅎ',
     'Kim Jeong-soo card must show Kang Seong-hun latest observation note'
   );
 

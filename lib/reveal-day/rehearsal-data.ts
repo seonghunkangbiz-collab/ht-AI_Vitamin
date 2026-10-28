@@ -1,5 +1,5 @@
 import type { RevealTimeCapsuleItem, MatePairReveal, RevealCuratedItem, RevealPublicState } from './types';
-import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS, INITIAL_NOTES } from '../seedData';
+import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS, INITIAL_NOTES, INITIAL_PRAISES } from '../seedData';
 
 // 24 original active members from seedData who participated in the 2-month program
 // (Recent additions Lee Hyun-seo & Choi Ji-hoon participate in Check-in & Lucky Draw, but are excluded from 2-month history segments)
@@ -21,61 +21,76 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
   const pairs: MatePairReveal[] = [];
   const userMap = new Map(REHEARSAL_USERS.map(u => [u.id, u]));
 
-  // Base assignments from actual INITIAL_MATE_ASSIGNMENTS (strictly for the 24 active program participants)
-  const allAssignments = [...INITIAL_MATE_ASSIGNMENTS];
-
   let pairIdx = 0;
   REHEARSAL_USERS.forEach((target, targetIdx) => {
-    // Inbound: The observers who secretly watched and cared for this target
-    let targetAssignments = allAssignments.filter(a => a.targetUserId === target.id);
+    // 1. Observers who actually wrote observation notes for this target (Highest Priority)
+    const noteObservers = INITIAL_NOTES
+      .filter(n => n.targetUserId === target.id && n.content?.trim())
+      .map(n => n.userId);
 
-    // Ensure EVERY participant has EXACTLY 2 secret mates (no participant left with only 1 mate)
-    if (targetAssignments.length < 2) {
-      const candidates = REHEARSAL_USERS.filter(
-        u => u.id !== target.id && !targetAssignments.some(a => a.userId === u.id)
-      );
-      const crossTeamCandidates = candidates.filter(u => u.team !== target.team);
-      const pool = crossTeamCandidates.length >= 2 ? crossTeamCandidates : candidates;
+    // 2. Observers who sent praise messages to this target
+    const praiseObservers = INITIAL_PRAISES
+      .filter(p => p.recipientUserId === target.id && (p.content?.trim() || p.refinedContent?.trim()))
+      .map(p => p.senderUserId);
 
-      while (targetAssignments.length < 2 && pool.length > 0) {
-        const nextObs = pool[(targetIdx * 5 + targetAssignments.length * 7) % pool.length];
-        targetAssignments.push({
-          id: `m-supp-${target.id}-${targetAssignments.length + 1}`,
-          userId: nextObs.id,
-          targetUserId: target.id,
-          assignedAt: '2026-09-09T03:16:26.732Z'
-        });
+    // 3. Observers from initial assignments
+    const assignedObservers = INITIAL_MATE_ASSIGNMENTS
+      .filter(a => a.targetUserId === target.id)
+      .map(a => a.userId);
+
+    // Combine distinct candidate observer IDs (exclude self and recent joins)
+    const candidateIds = Array.from(new Set([
+      ...noteObservers,
+      ...praiseObservers,
+      ...assignedObservers
+    ])).filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
+
+    // Ensure candidate pool has at least 2 distinct observers
+    const otherCandidates = REHEARSAL_USERS.filter(u => u.id !== target.id && !candidateIds.includes(u.id));
+    const crossTeam = otherCandidates.filter(u => u.team !== target.team);
+    const supplementPool = crossTeam.length >= 2 ? crossTeam : otherCandidates;
+
+    let suppIdx = 0;
+    while (candidateIds.length < 2 && supplementPool.length > 0) {
+      const nextUid = supplementPool[(targetIdx * 5 + suppIdx * 7) % supplementPool.length].id;
+      if (!candidateIds.includes(nextUid)) {
+        candidateIds.push(nextUid);
       }
+      suppIdx++;
     }
 
-    // Prioritize observers who left notes/praises, selecting 2 secret mates per target card
-    const selectedAssignments = targetAssignments
-      .sort((a, b) => {
-        const hasNoteA = INITIAL_NOTES.some(n => n.userId === a.userId && n.targetUserId === target.id) ? 1 : 0;
-        const hasNoteB = INITIAL_NOTES.some(n => n.userId === b.userId && n.targetUserId === target.id) ? 1 : 0;
-        return hasNoteB - hasNoteA;
-      })
-      .slice(0, 2);
+    // Sort candidates: Note author = 20 pts, Praise sender = 5 pts, Initial assignment = 2 pts
+    const selectedObserverIds = candidateIds.sort((a, b) => {
+      const scoreA = (noteObservers.includes(a) ? 20 : 0) + (praiseObservers.includes(a) ? 5 : 0) + (assignedObservers.includes(a) ? 2 : 0);
+      const scoreB = (noteObservers.includes(b) ? 20 : 0) + (praiseObservers.includes(b) ? 5 : 0) + (assignedObservers.includes(b) ? 2 : 0);
+      return scoreB - scoreA;
+    }).slice(0, 2);
 
     const batchIndex = Math.floor(targetIdx / 4); // 4 targets per stage batch
 
-    selectedAssignments.forEach(a => {
-      const observer = userMap.get(a.userId);
+    selectedObserverIds.forEach(obsId => {
+      const observer = userMap.get(obsId);
+
+      // Latest observation note from this observer to this target
       const matchedNotes = INITIAL_NOTES
-        .filter(n => n.userId === a.userId && n.targetUserId === target.id)
+        .filter(n => n.userId === obsId && n.targetUserId === target.id && n.content?.trim())
         .sort((n1, n2) => new Date(n2.updatedAt).getTime() - new Date(n1.updatedAt).getTime());
       const matchedNote = matchedNotes[0];
+
+      // Matched praise message
+      const matchedPraise = INITIAL_PRAISES
+        .find(p => p.senderUserId === obsId && p.recipientUserId === target.id);
 
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,
         batchIndex,
-        observerId: a.userId,
+        observerId: obsId,
         observerName: observer?.name || '익명 메이트',
         observerTeam: observer?.team || '',
         targetId: target.id,
         targetName: target.name,
         targetTeam: target.team,
-        praiseMessage: '',
+        praiseMessage: matchedPraise?.refinedContent || matchedPraise?.content || '',
         noteMessage: matchedNote?.content || '',
         isRevealed: false,
         isGuessedCorrectly: false, // Strictly false by default; only true when actual mobile guess matches!
