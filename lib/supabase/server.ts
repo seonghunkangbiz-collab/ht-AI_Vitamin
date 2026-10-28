@@ -19,7 +19,8 @@ let serverClientInstance: SupabaseClient | null = null;
 let adminClientInstance: SupabaseClient | null = null;
 
 export function hasSupabaseSecretKey(): boolean {
-  return Boolean(secretKey && !secretKey.includes('your_secret_key') && !secretKey.includes('your-secret-key'));
+  const currentSecret = process.env.SUPABASE_SECRET_KEY;
+  return Boolean(currentSecret && !currentSecret.includes('your_secret_key') && !currentSecret.includes('your-secret-key'));
 }
 
 /**
@@ -36,7 +37,7 @@ export function getSupabaseServerClient(options?: { requireSecret?: boolean }): 
   }
 
   if (!serverClientInstance) {
-    const keyToUse = hasSupabaseSecretKey() ? secretKey! : publishableKey!;
+    const keyToUse = hasSupabaseSecretKey() ? process.env.SUPABASE_SECRET_KEY! : publishableKey!;
     serverClientInstance = createClient(supabaseUrl!, keyToUse, {
       auth: {
         persistSession: false
@@ -59,8 +60,9 @@ export function getSupabaseAdminClient(): SupabaseClient {
     throw new SupabaseSecretKeyMissingError();
   }
 
+  const currentSecret = process.env.SUPABASE_SECRET_KEY!;
   if (!adminClientInstance) {
-    adminClientInstance = createClient(supabaseUrl!, secretKey!, {
+    adminClientInstance = createClient(supabaseUrl!, currentSecret, {
       auth: {
         persistSession: false,
         autoRefreshToken: false
