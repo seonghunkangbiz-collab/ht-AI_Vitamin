@@ -20,7 +20,7 @@ interface JourneySegmentProps {
 
 export default function JourneySegment({ stats }: JourneySegmentProps) {
   const fallbackStats = {
-    totalUsers: 26,
+    totalUsers: 24,
     totalPraises: 68,
     weeklyPraises: 27,
     totalNotes: 31,
@@ -28,7 +28,7 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
     teamStats: {
       '반도체전략사업개발팀': { praiseGiven: 18, praiseReceived: 25, userCount: 12 },
       '반도체AX사업개발팀': { praiseGiven: 32, praiseReceived: 24, userCount: 7 },
-      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 7 }
+      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 5 }
     },
     keywords: ['협업과 배려', '신뢰와 책임', '문제해결', '전문성', '긍정에너지', '팀워크', '열정'],
     approvedQuotes: [
@@ -40,6 +40,8 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
   };
 
   const currentStats = stats || fallbackStats;
+  // Journey segment strictly displays the 24 active participants of the 2-month program
+  const journeyTotalUsers = currentStats.totalUsers > 24 ? 24 : (currentStats.totalUsers || 24);
 
   // Curate inspirational anonymous praise quotes for stage
   // Filter out short test texts and lottery/draw casual comments ("선물 당첨", "축하해요" 등)
@@ -86,7 +88,7 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
     const defaults = {
       '반도체전략사업개발팀': { praiseGiven: 18, praiseReceived: 25, userCount: 12 },
       '반도체AX사업개발팀': { praiseGiven: 32, praiseReceived: 24, userCount: 7 },
-      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 7 }
+      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 5 }
     };
 
     const result: Record<string, { praiseGiven: number; praiseReceived: number; userCount: number }> = {};
@@ -109,6 +111,11 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
 
       result['반도체Global사업개발팀'].praiseGiven += Math.max(1, hqData.praiseGiven - 2);
       result['반도체Global사업개발팀'].praiseReceived += Math.max(1, hqData.praiseReceived - 3);
+    }
+
+    // Ensure Global team strictly reflects the 5 original members who participated in 2-month period
+    if (result['반도체Global사업개발팀'] && result['반도체Global사업개발팀'].userCount > 5) {
+      result['반도체Global사업개발팀'].userCount = 5;
     }
 
     return result;
@@ -185,8 +192,8 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
                 <Award className="w-4 h-4" />
               </div>
               <div className="text-xs text-slate-400">전체 참여 구성원</div>
-              <div className="text-3xl font-black text-white mt-0.5">{currentStats.totalUsers}명</div>
-              <div className="text-[11px] text-emerald-400/80 mt-1">100% 교차 매칭 배정</div>
+              <div className="text-3xl font-black text-white mt-0.5">{journeyTotalUsers}명</div>
+              <div className="text-[11px] text-emerald-400/80 mt-1">2달간 활동 참여 24인 집계</div>
             </motion.div>
           </div>
 

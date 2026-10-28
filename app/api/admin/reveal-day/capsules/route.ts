@@ -35,7 +35,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const formatted = (capsules || []).map(c => ({
+    // Exclude recent additions (이현서, 최지훈) who did not participate in the 2-month praise & capsule cycle
+    const formatted = (capsules || [])
+      .filter(c => !['user-25', 'user-26'].includes(c.user_id) && !['이현서', '최지훈'].includes(c.recipient_name))
+      .map(c => ({
       id: c.id,
       userId: c.user_id,
       recipientName: c.recipient_name,

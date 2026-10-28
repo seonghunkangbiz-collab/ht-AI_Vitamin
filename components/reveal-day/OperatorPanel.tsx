@@ -76,7 +76,7 @@ export default function OperatorPanel({
   onFactoryReset,
   onOpenPreflight,
   onNavigateCapsule,
-  capsulesCount = 26,
+  capsulesCount = 24,
   onAdjustPizzaTimer,
   isProcessing
 }: OperatorPanelProps) {
@@ -600,7 +600,7 @@ export default function OperatorPanel({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-indigo-300">AI Time Capsule Spotlight 넘기기</span>
               <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                {(publicState.currentCapsuleIndex || 0) + 1} / {capsulesCount || 26}
+                {(publicState.currentCapsuleIndex || 0) + 1} / {capsulesCount || 24}
               </span>
             </div>
 
@@ -608,7 +608,7 @@ export default function OperatorPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const max = capsulesCount || 26;
+                  const max = capsulesCount || 24;
                   const cur = publicState.currentCapsuleIndex || 0;
                   const prev = cur === 0 ? max - 1 : cur - 1;
                   if (onNavigateCapsule) onNavigateCapsule(prev);
@@ -623,7 +623,7 @@ export default function OperatorPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const max = capsulesCount || 26;
+                  const max = capsulesCount || 24;
                   const cur = publicState.currentCapsuleIndex || 0;
                   const next = cur === max - 1 ? 0 : cur + 1;
                   if (onNavigateCapsule) onNavigateCapsule(next);

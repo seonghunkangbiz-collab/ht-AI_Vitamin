@@ -36,7 +36,10 @@ export async function GET(request: Request) {
         .select('id, name, team, role')
         .order('name', { ascending: true });
 
-      const activeUsers = (users || []).filter(u => u.role !== 'admin');
+      // Filter out admin and recent joins (이현서, 최지훈) who did not participate in mate assignments
+      const activeUsers = (users || []).filter(
+        u => u.role !== 'admin' && !['user-25', 'user-26'].includes(u.id) && !['이현서', '최지훈'].includes(u.name)
+      );
       const userMap = new Map(activeUsers.map(u => [u.id, u]));
 
       const { data: assignments } = await supabase

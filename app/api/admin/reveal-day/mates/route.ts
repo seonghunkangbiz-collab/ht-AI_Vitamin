@@ -22,7 +22,10 @@ async function getEventMatePairs(eventId: string): Promise<MatePairReveal[]> {
     .select('id, name, team, role')
     .order('name', { ascending: true });
 
-  const activeUsers = (users || []).filter(u => u.role !== 'admin');
+  // Exclude admin and recent additions (이현서, 최지훈) who did not participate in mate assignments
+  const activeUsers = (users || []).filter(
+    u => u.role !== 'admin' && !['user-25', 'user-26'].includes(u.id) && !['이현서', '최지훈'].includes(u.name)
+  );
   const userMap = new Map(activeUsers.map(u => [u.id, u]));
 
   // Inbound relations: target_user_id is the recipient, user_id is the observer

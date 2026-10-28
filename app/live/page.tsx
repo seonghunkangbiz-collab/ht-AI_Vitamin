@@ -76,12 +76,19 @@ function LiveAttendeeContent() {
           }
         } catch {}
 
-        // Fetch users for guess selector
+        // Fetch users for guess selector (exclude self and recent joins)
         try {
           const uRes = await fetch('/api/users');
           if (uRes.ok) {
             const uData = await uRes.json();
-            setAllUsers((uData.users || []).filter((u: any) => u.id !== user.id));
+            setAllUsers(
+              (uData.users || []).filter(
+                (u: any) =>
+                  u.id !== user.id &&
+                  !['user-25', 'user-26'].includes(u.id) &&
+                  !['이현서', '최지훈'].includes(u.name)
+              )
+            );
           }
         } catch {}
       }
@@ -468,7 +475,12 @@ function LiveAttendeeContent() {
               지난 2개월간 나를 묵묵히 관찰하고 지켜봐 준 비타민은 누구였을까요? 예상되는 동료를 선택해 보세요!
             </p>
 
-            {hasGuessed ? (
+            {currentUserState && (['이현서', '최지훈'].includes(currentUserState.name) || ['user-25', 'user-26'].includes(currentUserState.id)) ? (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-center text-xs text-amber-800 font-medium leading-relaxed">
+                🎉 <strong>환영합니다!</strong> 최근 HT사업본부에 합류하신 소중한 새 가족입니다.<br />
+                동료들의 시크릿 비타민 메이트 공개 무대를 함께 즐겨주세요!
+              </div>
+            ) : hasGuessed ? (
               <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-center text-xs text-indigo-600 font-bold">
                 추측이 제출되었습니다! 무대 공개를 기대해 주세요.
               </div>
@@ -508,7 +520,12 @@ function LiveAttendeeContent() {
               동료들이 전해준 따뜻한 칭찬 메시지를 AI가 분석하여 작성한 나만의 타임캡슐을 오픈해 보세요!
             </p>
 
-            {myCapsule ? (
+            {currentUserState && (['이현서', '최지훈'].includes(currentUserState.name) || ['user-25', 'user-26'].includes(currentUserState.id)) ? (
+              <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-center text-xs text-sky-800 font-medium leading-relaxed">
+                💌 <strong>웰컴 비타민!</strong> 최근 합류하신 소중한 새 가족입니다.<br />
+                다음 시즌에는 멋진 타임캡슐의 주인공이 되실 수 있습니다!
+              </div>
+            ) : myCapsule ? (
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-3">
                 <div className="flex flex-wrap gap-1">
                   {(myCapsule.keywords || []).map((k: string, i: number) => (

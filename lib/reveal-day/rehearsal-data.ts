@@ -1,8 +1,11 @@
 import type { RevealTimeCapsuleItem, MatePairReveal, RevealCuratedItem, RevealPublicState } from './types';
 import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS, INITIAL_NOTES } from '../seedData';
 
-// 26 actual active members from seedData (excluding admin)
-const REAL_ATTENDEES = INITIAL_USERS.filter(u => u.role !== 'admin');
+// 24 original active members from seedData who participated in the 2-month program
+// (Recent additions Lee Hyun-seo & Choi Ji-hoon participate in Check-in & Lucky Draw, but are excluded from 2-month history segments)
+const REAL_ATTENDEES = INITIAL_USERS.filter(
+  u => u.role !== 'admin' && !['user-25', 'user-26'].includes(u.id) && !['이현서', '최지훈'].includes(u.name)
+);
 
 export const REHEARSAL_USERS = REAL_ATTENDEES.map((user) => {
   return {
@@ -18,29 +21,26 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
   const pairs: MatePairReveal[] = [];
   const userMap = new Map(REHEARSAL_USERS.map(u => [u.id, u]));
 
-  // Base assignments from actual INITIAL_MATE_ASSIGNMENTS
+  // Base assignments from actual INITIAL_MATE_ASSIGNMENTS (strictly for the 24 active program participants)
   const allAssignments = [...INITIAL_MATE_ASSIGNMENTS];
-
-  // Ensure user-25 (이현서) and user-26 (최지훈) have bidirectional assignments
-  if (!allAssignments.some(a => a.targetUserId === 'user-25')) {
-    allAssignments.push(
-      { id: 'm-seed-u25-1', userId: 'user-26', targetUserId: 'user-25', assignedAt: '2026-09-09T03:16:26.732Z' },
-      { id: 'm-seed-u25-2', userId: 'user-13', targetUserId: 'user-25', assignedAt: '2026-09-09T03:16:26.732Z' }
-    );
-  }
-  if (!allAssignments.some(a => a.targetUserId === 'user-26')) {
-    allAssignments.push(
-      { id: 'm-seed-u26-1', userId: 'user-25', targetUserId: 'user-26', assignedAt: '2026-09-09T03:16:26.732Z' },
-      { id: 'm-seed-u26-2', userId: 'user-14', targetUserId: 'user-26', assignedAt: '2026-09-09T03:16:26.732Z' }
-    );
-  }
 
   let pairIdx = 0;
   REHEARSAL_USERS.forEach((target, targetIdx) => {
     // Inbound: The observers who secretly watched and cared for this target
+    let targetAssignments = allAssignments.filter(a => a.targetUserId === target.id);
+
+    // If an original participant has no inbound assignment, assign 2 cross-team peers from the 24 participants
+    if (targetAssignments.length === 0) {
+      const obs1 = REHEARSAL_USERS[(targetIdx + 5) % REHEARSAL_USERS.length];
+      const obs2 = REHEARSAL_USERS[(targetIdx + 11) % REHEARSAL_USERS.length];
+      targetAssignments = [
+        { id: `m-auto-${target.id}-1`, userId: obs1.id, targetUserId: target.id, assignedAt: '2026-09-09T03:16:26.732Z' },
+        { id: `m-auto-${target.id}-2`, userId: obs2.id, targetUserId: target.id, assignedAt: '2026-09-09T03:16:26.732Z' }
+      ];
+    }
+
     // Prioritize observers who left notes/praises, selecting 2 secret mates per target card
-    const targetAssignments = allAssignments
-      .filter(a => a.targetUserId === target.id)
+    const selectedAssignments = targetAssignments
       .sort((a, b) => {
         const hasNoteA = INITIAL_NOTES.some(n => n.userId === a.userId && n.targetUserId === target.id) ? 1 : 0;
         const hasNoteB = INITIAL_NOTES.some(n => n.userId === b.userId && n.targetUserId === target.id) ? 1 : 0;
@@ -50,7 +50,7 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
 
     const batchIndex = Math.floor(targetIdx / 4); // 4 targets per stage batch
 
-    targetAssignments.forEach(a => {
+    selectedAssignments.forEach(a => {
       const observer = userMap.get(a.userId);
       const matchedNote = INITIAL_NOTES.find(n => n.userId === a.userId && n.targetUserId === target.id);
 

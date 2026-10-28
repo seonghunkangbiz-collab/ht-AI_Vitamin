@@ -29,7 +29,10 @@ export async function generateOfficialSnapshot(options: SnapshotGenerationOption
     .select('id, name, team, avatar, role');
   if (userErr) throw new Error(`Snapshot failed to fetch users: ${userErr.message}`);
 
-  const activeUsers = (users || []).filter(u => u.role !== 'admin');
+  // Exclude admin and recent additions (이현서, 최지훈) who did not participate in the 2-month program
+  const activeUsers = (users || []).filter(
+    u => u.role !== 'admin' && !['user-25', 'user-26'].includes(u.id) && !['이현서', '최지훈'].includes(u.name)
+  );
 
   // 2. Fetch Praises up to Cutoff
   const { data: allPraises, error: praiseErr } = await supabase

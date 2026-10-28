@@ -631,6 +631,29 @@ test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', as
   assert.equal(pair2Guessed, false, 'Unmatched observer returns false');
 });
 
+test('Test 31: Recent additions (이현서, 최지훈) excluded from 2-month history segments', async () => {
+  const { REHEARSAL_MATE_PAIRS, REHEARSAL_TIME_CAPSULES, REHEARSAL_USERS } = await import('@/lib/reveal-day/rehearsal-data');
+
+  // 1. REHEARSAL_USERS only has the 24 active participants of the 2-month program
+  assert.equal(REHEARSAL_USERS.length, 24, 'Rehearsal active users for 2-month segments must equal 24');
+  assert.equal(REHEARSAL_USERS.some(u => u.name === '이현서' || u.name === '최지훈'), false);
+
+  // 2. REHEARSAL_MATE_PAIRS must NOT include 이현서 or 최지훈 as target or observer
+  const uniqueTargets = new Set(REHEARSAL_MATE_PAIRS.map(p => p.targetName));
+  const uniqueObservers = new Set(REHEARSAL_MATE_PAIRS.map(p => p.observerName));
+
+  assert.equal(uniqueTargets.size, 24, 'Mystery mate reveal has exactly 24 targets');
+  assert.equal(uniqueTargets.has('이현서'), false, '이현서 must not appear as mate target');
+  assert.equal(uniqueTargets.has('최지훈'), false, '최지훈 must not appear as mate target');
+  assert.equal(uniqueObservers.has('이현서'), false, '이현서 must not appear as mate observer');
+  assert.equal(uniqueObservers.has('최지훈'), false, '최지훈 must not appear as mate observer');
+
+  // 3. REHEARSAL_TIME_CAPSULES has exactly 24 capsules
+  assert.equal(REHEARSAL_TIME_CAPSULES.length, 24, 'Time capsules must equal 24');
+  assert.equal(REHEARSAL_TIME_CAPSULES.some(c => c.recipientName === '이현서' || c.recipientName === '최지훈'), false);
+});
+
+
 
 
 
