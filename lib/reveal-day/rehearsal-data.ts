@@ -1,5 +1,6 @@
 import type { RevealTimeCapsuleItem, MatePairReveal, RevealCuratedItem, RevealPublicState } from './types';
 import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS, INITIAL_NOTES, INITIAL_PRAISES } from '../seedData';
+import { parseDateToTimestamp } from './titles';
 
 // 24 original active members from seedData who participated in the 2-month program
 // (Recent additions Lee Hyun-seo & Choi Ji-hoon participate in Check-in & Lucky Draw, but are excluded from 2-month history segments)
@@ -69,8 +70,14 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
       // Latest observation note from this observer to this target
       const matchedNotes = INITIAL_NOTES
         .filter(n => n.userId === obsId && n.targetUserId === target.id && n.content?.trim())
-        .sort((n1, n2) => new Date(n2.updatedAt).getTime() - new Date(n1.updatedAt).getTime());
+        .sort((n1, n2) => parseDateToTimestamp(n2.updatedAt, n2.id) - parseDateToTimestamp(n1.updatedAt, n1.id));
       const matchedNote = matchedNotes[0];
+
+      // Latest praise message from this observer to this target (fallback if note is missing)
+      const matchedPraises = INITIAL_PRAISES
+        .filter(p => p.senderUserId === obsId && p.recipientUserId === target.id && (p.refinedContent?.trim() || p.content?.trim()))
+        .sort((p1, p2) => parseDateToTimestamp(p2.createdAt, p2.id) - parseDateToTimestamp(p1.createdAt, p1.id));
+      const matchedPraise = matchedPraises[0];
 
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,
@@ -81,7 +88,7 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
         targetId: target.id,
         targetName: target.name,
         targetTeam: target.team,
-        praiseMessage: '', // Mystery Mate Reveal focuses exclusively on observation notes from actual Mates
+        praiseMessage: matchedPraise?.refinedContent || matchedPraise?.content || '',
         noteMessage: matchedNote?.content || '',
         isRevealed: false,
         isGuessedCorrectly: false, // Strictly false by default; only true when actual mobile guess matches!

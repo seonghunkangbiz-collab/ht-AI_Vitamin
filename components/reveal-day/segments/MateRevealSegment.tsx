@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Lock, Sparkles, UserCheck, ShieldCheck } from 'lucide-react';
+import { Eye, Lock, Sparkles, UserCheck, ShieldCheck, Heart } from 'lucide-react';
 import { MatePairReveal, ReactionCounts } from '@/lib/reveal-day/types';
 import { getUserTitle } from '@/lib/reveal-day/titles';
 
@@ -228,13 +228,13 @@ export default function MateRevealSegment({
                         </div>
                       </div>
 
-                      {/* Revealed Message from Secret Mate (Observation Note Centered) */}
+                      {/* Case 1: Observation Note (Highest Priority) */}
                       {isRevealed && observer.noteMessage && (
                         <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-sky-500/15 via-slate-900/95 to-slate-900/95 border border-sky-400/40 border-l-4 border-l-sky-400 text-xs shadow-lg shadow-sky-500/5">
                           <div className="flex items-center justify-between text-[10px] text-sky-300 font-bold mb-1">
                             <div className="flex items-center gap-1">
                               <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                              <span className="tracking-wide">{observer.observerName} 메이트가 남긴 관찰 메모</span>
+                              <span className="tracking-wide">{observer.observerName} 메이트의 최신 관찰 메모</span>
                             </div>
                             {observer.noteMessage.length > 60 && (
                               <span className="text-[9px] text-sky-400/80 font-normal">스크롤하여 전체보기</span>
@@ -248,8 +248,28 @@ export default function MateRevealSegment({
                         </div>
                       )}
 
-                      {/* Gentle fallback if no observation note was recorded */}
-                      {isRevealed && !observer.noteMessage && (
+                      {/* Case 2: Praise Message Fallback (when Observation Note is absent) */}
+                      {isRevealed && !observer.noteMessage && observer.praiseMessage && (
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-slate-900/95 to-slate-900/95 border border-amber-400/40 border-l-4 border-l-amber-400 text-xs shadow-lg shadow-amber-500/5">
+                          <div className="flex items-center justify-between text-[10px] text-amber-300 font-bold mb-1">
+                            <div className="flex items-center gap-1">
+                              <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
+                              <span className="tracking-wide">{observer.observerName} 메이트가 전한 칭찬 메시지</span>
+                            </div>
+                            {observer.praiseMessage.length > 60 && (
+                              <span className="text-[9px] text-amber-400/80 font-normal">스크롤하여 전체보기</span>
+                            )}
+                          </div>
+                          <div className="max-h-24 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-transparent">
+                            <p className={`italic ${observer.praiseMessage.length > 70 ? 'text-[10.5px]' : 'text-[11.5px]'} leading-relaxed text-slate-100 whitespace-pre-line break-words`}>
+                              &ldquo;{observer.praiseMessage}&rdquo;
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Case 3: Gentle default fallback if both note and praise are absent */}
+                      {isRevealed && !observer.noteMessage && !observer.praiseMessage && (
                         <div className="mt-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-[10.5px] text-slate-400 italic text-center">
                           &ldquo;{observer.observerName} 메이트가 보이지 않는 곳에서 항상 응원하고 있었습니다! ✨&rdquo;
                         </div>

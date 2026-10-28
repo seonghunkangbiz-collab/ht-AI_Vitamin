@@ -137,6 +137,9 @@ export async function GET(request: Request) {
         selectedObserverIds.forEach(obsId => {
           const observer = userMap.get(obsId);
           const latestNote = noteMap.get(`${obsId}->${target.id}`) || '';
+          const matchedPraises = (praises || [])
+            .filter(p => p.sender_user_id === obsId && p.recipient_user_id === target.id && (p.refined_content?.trim() || p.content?.trim()));
+          const latestPraise = matchedPraises[0]?.refined_content || matchedPraises[0]?.content || '';
 
           allPairs.push({
             id: `live-pair-${target.id}-${obsId}`,
@@ -147,7 +150,7 @@ export async function GET(request: Request) {
             targetId: target.id,
             targetName: target.name,
             targetTeam: target.team,
-            praiseMessage: '', // Mystery Mate Reveal focuses exclusively on observation notes from actual Mates
+            praiseMessage: latestPraise, // Fallback praise when observation note is missing
             noteMessage: latestNote,
             isRevealed: false
           });

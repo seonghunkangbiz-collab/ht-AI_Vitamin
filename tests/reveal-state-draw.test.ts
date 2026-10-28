@@ -706,9 +706,15 @@ test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recom
     'Kim Jeong-soo card must show Kang Seong-hun latest observation note'
   );
 
-  // 3. Praise message exclusion & Mate-centric observer isolation verification
-  assert.equal(hongKangPair?.praiseMessage, '', 'Praise message must not be shown on Mystery Mate card');
-  assert.equal(kimKangPair?.praiseMessage, '', 'Praise message must not be shown on Mystery Mate card');
+  // 3. Fallback verification: When note exists, note is displayed; when note absent, praise is fallback
+  assert.ok(hongKangPair?.noteMessage, 'Kang Seong-hun has note for Hong Tae-young');
+  
+  const hongTaeHyeongPair = REHEARSAL_MATE_PAIRS.find(
+    p => p.targetId === 'user-01' && p.observerId === 'user-22'
+  );
+  assert.ok(hongTaeHyeongPair, 'Kang Tae-hyeong is Hong Tae-young second assigned mate');
+  assert.equal(hongTaeHyeongPair?.noteMessage, '', 'Kang Tae-hyeong has no observation note');
+  assert.ok(hongTaeHyeongPair?.praiseMessage?.includes('나이스 & 스마트'), 'Kang Tae-hyeong praise message is used as fallback');
 
   const kangAsObserverPairs = REHEARSAL_MATE_PAIRS.filter(p => p.observerId === 'user-15');
   assert.equal(kangAsObserverPairs.length, 2, 'Kang Seong-hun must only be a secret mate for his 2 assigned targets');

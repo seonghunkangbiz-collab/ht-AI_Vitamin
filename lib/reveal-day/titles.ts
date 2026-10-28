@@ -26,3 +26,27 @@ export function formatNameWithTitle(name?: string | null): string {
   const title = getUserTitle(clean);
   return `${clean} ${title}`;
 }
+
+export function parseDateToTimestamp(d?: any, id?: string): number {
+  if (!d) return 0;
+  if (typeof d === 'number') return d;
+  const isoTime = new Date(d).getTime();
+  if (!isNaN(isoTime)) return isoTime;
+
+  // Handle Korean locale date: "2026. 10. 22. 오후 9:16:26" or "2026. 9. 11. 오전 9:22:55"
+  const m = String(d).match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+  if (m) {
+    let [_, y, mon, day, period, h, min, s] = m;
+    let hour = parseInt(h, 10);
+    if (period === '오후' && hour < 12) hour += 12;
+    if (period === '오전' && hour === 12) hour = 0;
+    return new Date(parseInt(y, 10), parseInt(mon, 10) - 1, parseInt(day, 10), hour, parseInt(min, 10), parseInt(s, 10)).getTime();
+  }
+
+  // Fallback to timestamp embedded in ID (e.g. note-1791955507745-jkk4 or praise-1789086175199-hmbr)
+  if (id) {
+    const idMatch = String(id).match(/-(\d{12,14})-/);
+    if (idMatch) return parseInt(idMatch[1], 10);
+  }
+  return 0;
+}
