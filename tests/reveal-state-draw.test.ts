@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { isBeforeCutoff, computeSnapshotHash } from '@/lib/reveal-day/snapshot';
 import { selectWinnerWithCSPRNG, ADDITIONAL_LUCKY_DRAW_MEMBERS } from '@/lib/reveal-day/draw';
 import { getUserTitle, formatNameWithTitle } from '@/lib/reveal-day/titles';
@@ -7,6 +8,7 @@ import { getRehearsalSnapshot, getRehearsalPublicState } from '@/lib/reveal-day/
 import { INITIAL_USERS } from '@/lib/seedData';
 import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
 import { ORDERED_SEGMENTS, SEGMENT_METADATA } from '@/lib/reveal-day/state-machine';
+import { resolveLocalVideoPath } from '@/lib/reveal-day/video-resolver';
 import type { RevealPublicState } from '@/lib/reveal-day/types';
 
 // Mock DB store for testing state transitions and version conflicts
@@ -421,26 +423,85 @@ test('Test 26: Video URL parser and dual-mode playback support', () => {
   assert.equal(ytEmbed.isValid, true);
   assert.equal(ytEmbed.type, 'youtube');
 
-  // 4. Direct HTML5 video file
+  // 4. Direct HTML5 video file (web URL)
   const mp4Direct = parseVideoUrl('https://example.com/assets/ai_vitamin_mv.mp4');
   assert.equal(mp4Direct.isValid, true);
   assert.equal(mp4Direct.type, 'direct');
   assert.equal(mp4Direct.embedUrl, 'https://example.com/assets/ai_vitamin_mv.mp4');
 
-  // 5. Vimeo link
+  // 5. Local PC MP4 path (Mac/Linux absolute path)
+  const localMac = parseVideoUrl('/Users/a09721/Downloads/ai_vitamin_song.mp4');
+  assert.equal(localMac.isValid, true);
+  assert.equal(localMac.type, 'local');
+  assert.ok(localMac.embedUrl.startsWith('/api/reveal-day/video-file?path='));
+  assert.equal(localMac.fileName, 'ai_vitamin_song.mp4');
+
+  // 6. Local PC MP4 path (Windows path)
+  const localWin = parseVideoUrl('C:\\Users\\a09721\\Videos\\presentation.mp4');
+  assert.equal(localWin.isValid, true);
+  assert.equal(localWin.type, 'local');
+  assert.equal(localWin.fileName, 'presentation.mp4');
+
+  // 7. Local file:// URI format
+  const localFileUri = parseVideoUrl('file:///Users/a09721/Movies/video.mov');
+  assert.equal(localFileUri.isValid, true);
+  assert.equal(localFileUri.type, 'local');
+  assert.equal(localFileUri.fileName, 'video.mov');
+
+  // 8. Relative video filename
+  const localRel = parseVideoUrl('ai_vitamin_mv.mp4');
+  assert.equal(localRel.isValid, true);
+  assert.equal(localRel.type, 'local');
+  assert.equal(localRel.fileName, 'ai_vitamin_mv.mp4');
+
+  // 9. Vimeo link
   const vimeoUrl = parseVideoUrl('https://vimeo.com/123456789');
   assert.equal(vimeoUrl.isValid, true);
   assert.equal(vimeoUrl.type, 'vimeo');
   assert.ok(vimeoUrl.embedUrl.includes('123456789'));
 
-  // 6. Invalid / Empty URL
+  // 10. Invalid / Empty URL
   const emptyUrl = parseVideoUrl('');
   assert.equal(emptyUrl.isValid, false);
   assert.equal(emptyUrl.type, 'unknown');
 
-  const invalidUrl = parseVideoUrl('not-a-valid-url');
+  const invalidUrl = parseVideoUrl('not-a-valid-url-without-extension');
   assert.equal(invalidUrl.isValid, false);
 });
+
+test('Test 27: Local MP4 video stream resolver (resolveLocalVideoPath)', () => {
+  import('fs').then(fs => {
+    // Create a temporary test video file in public/video/
+    const testDir = path.resolve(process.cwd(), 'public', 'video');
+    if (!fs.existsSync(testDir)) fs.mkdirSync(testDir, { recursive: true });
+    const dummyVideo = path.join(testDir, 'test_dummy.mp4');
+    fs.writeFileSync(dummyVideo, 'fake-mp4-content');
+
+    // 1. Resolve by direct absolute path
+    const resolvedDirect = resolveLocalVideoPath(dummyVideo);
+    assert.equal(resolvedDirect, dummyVideo);
+
+    // 2. Resolve by filename only (finds in public/video)
+    const resolvedName = resolveLocalVideoPath('test_dummy.mp4');
+    assert.ok(resolvedName && resolvedName.endsWith('test_dummy.mp4'));
+
+    // 3. Resolve by /video/... path
+    const resolvedSlash = resolveLocalVideoPath('/video/test_dummy.mp4');
+    assert.ok(resolvedSlash && resolvedSlash.endsWith('test_dummy.mp4'));
+
+    // 4. Non-existent file returns null
+    const notFound = resolveLocalVideoPath('/non/existent/path/never_there.mp4');
+    assert.equal(notFound, null);
+
+    // 5. Disallowed extensions (e.g. .env, .txt) return null even if file exists
+    const notVideo = resolveLocalVideoPath('package.json');
+    assert.equal(notVideo, null);
+
+    // Cleanup
+    try { fs.unlinkSync(dummyVideo); } catch {}
+  });
+});
+
 
 
 

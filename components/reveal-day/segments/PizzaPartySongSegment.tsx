@@ -24,7 +24,11 @@ import {
   Maximize,
   Minimize,
   ExternalLink,
-  Check
+  Check,
+  Folder,
+  HardDrive,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
@@ -120,6 +124,8 @@ export default function PizzaPartySongSegment({
   const [theaterMode, setTheaterMode] = useState<boolean>(false);
   const [manualVideoInput, setManualVideoInput] = useState<string>('');
   const [showManualInput, setShowManualInput] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const displayFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initialize saved mode & video URL from LocalStorage
   useEffect(() => {
@@ -135,6 +141,33 @@ export default function PizzaPartySongSegment({
       }
     } catch {}
   }, []);
+
+  const handleDisplayFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/reveal-day/video-file', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.webUrl) {
+        handleUpdateVideoUrl(data.webUrl);
+        setShowManualInput(false);
+      } else {
+        alert(data.message || '동영상 파일 처리에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert('파일 업로드 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      setIsUploading(false);
+      if (displayFileInputRef.current) displayFileInputRef.current.value = '';
+    }
+  };
 
   const currentTrack: SongTrack = AI_VITAMIN_PLAYLIST[currentTrackIndex] || AI_VITAMIN_PLAYLIST[0];
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -642,6 +675,8 @@ export default function PizzaPartySongSegment({
                       <span className="text-xs font-bold text-amber-400 truncate">
                         {parsedVideo.type === 'youtube'
                           ? 'YouTube 재생'
+                          : parsedVideo.type === 'local'
+                          ? `💻 로컬 MP4: ${parsedVideo.fileName || '비디오'}`
                           : parsedVideo.type === 'direct'
                           ? 'MP4 비디오'
                           : parsedVideo.type === 'vimeo'
@@ -662,7 +697,7 @@ export default function PizzaPartySongSegment({
                     className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all border border-slate-700/60"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                    <span>링크 {showManualInput ? '닫기' : '입력'}</span>
+                    <span>경로/링크 {showManualInput ? '닫기' : '입력'}</span>
                   </button>
                   <button
                     type="button"
@@ -677,27 +712,49 @@ export default function PizzaPartySongSegment({
 
               {/* Quick Input Bar if toggled */}
               {showManualInput && (
-                <div className="p-3 rounded-2xl bg-slate-950 border border-amber-500/40 flex items-center gap-2 shadow-lg">
+                <div className="p-3 rounded-2xl bg-slate-950 border border-amber-500/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-lg">
                   <input
-                    type="text"
-                    value={manualVideoInput}
-                    onChange={(e) => setManualVideoInput(e.target.value)}
-                    placeholder="유튜브 링크 또는 영상 URL 붙여넣기 (예: https://youtu.be/... 또는 MP4 URL)"
-                    className="flex-1 py-1.5 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                    type="file"
+                    ref={displayFileInputRef}
+                    onChange={handleDisplayFileSelect}
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    className="hidden"
                   />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (manualVideoInput.trim()) {
-                        handleUpdateVideoUrl(manualVideoInput);
-                        setShowManualInput(false);
-                      }
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 flex items-center gap-1 shadow"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>적용</span>
-                  </button>
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={manualVideoInput}
+                      onChange={(e) => setManualVideoInput(e.target.value)}
+                      placeholder="로컬 PC 파일 경로(예: /Users/.../song.mp4, C:\... 또는 파일명) 또는 유튜브 링크"
+                      className="w-full py-1.5 pl-7 pr-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                    />
+                    <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2.5" />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => displayFileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center gap-1"
+                    >
+                      {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : <Folder className="w-3.5 h-3.5 text-amber-400" />}
+                      <span>{isUploading ? '로딩 중...' : 'PC 파일 찾기'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualVideoInput.trim()) {
+                          handleUpdateVideoUrl(manualVideoInput);
+                          setShowManualInput(false);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 flex items-center gap-1 shadow"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>적용</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -725,6 +782,13 @@ export default function PizzaPartySongSegment({
                 ) : (
                   /* Standby / Guide when no video link registered */
                   <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                    <input
+                      type="file"
+                      ref={displayFileInputRef}
+                      onChange={handleDisplayFileSelect}
+                      accept="video/mp4,video/quicktime,video/webm,video/*"
+                      className="hidden"
+                    />
                     <div className="w-16 h-16 rounded-3xl bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3 animate-pulse">
                       <Film className="w-8 h-8" />
                     </div>
@@ -732,21 +796,30 @@ export default function PizzaPartySongSegment({
                       AI Vitamin Song 뮤직비디오 영상 대기 중
                     </h4>
                     <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                      오퍼레이터 화면(/admin/reveal-day) 또는 상단의 [링크 입력] 버튼에서 유튜브 영상 링크나 동영상 URL을 등록하시면 대형 화면에 실시간 상영됩니다.
+                      오퍼레이터 화면(/admin/reveal-day)에서 <strong>로컬 PC의 MP4 파일 경로</strong>나 유튜브 주소를 입력하거나, 아래 <strong>[로컬 MP4 파일 선택]</strong> 버튼으로 동영상을 바로 연결할 수 있습니다.
                     </p>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowManualInput(true)}
+                        onClick={() => displayFileInputRef.current?.click()}
+                        disabled={isUploading}
                         className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-black text-xs hover:opacity-90 shadow-lg shadow-rose-500/20 transition-all flex items-center gap-1.5"
                       >
-                        <ExternalLink className="w-4 h-4" />
-                        <span>영상 링크 직접 입력</span>
+                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Folder className="w-4 h-4" />}
+                        <span>{isUploading ? '로딩 중...' : '로컬 MP4 파일 선택'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualInput(true)}
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                      >
+                        <HardDrive className="w-4 h-4 text-sky-400" />
+                        <span>경로 직접 입력</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleModeChange('audio')}
-                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
                       >
                         <Music className="w-4 h-4 text-sky-400" />
                         <span>가사 모드로 전환</span>

@@ -33,7 +33,11 @@ import {
   Video,
   Film,
   ExternalLink,
-  Link2
+  Link2,
+  Folder,
+  HardDrive,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
@@ -96,6 +100,8 @@ export default function OperatorPanel({
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [inputVideoUrl, setInputVideoUrl] = useState<string>('');
   const [videoBroadcastSuccess, setVideoBroadcastSuccess] = useState<boolean>(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [songTrackIndex, setSongTrackIndex] = useState<number>(0);
   const [isSongPlaying, setIsSongPlaying] = useState<boolean>(false);
   const [showLyricsPreview, setShowLyricsPreview] = useState<boolean>(false);
@@ -114,6 +120,32 @@ export default function OperatorPanel({
       }
     } catch {}
   }, []);
+
+  const handleLocalFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/reveal-day/video-file', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.webUrl) {
+        sendBroadcastVideoUrl(data.webUrl);
+      } else {
+        alert(data.message || '동영상 파일 처리에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert('파일 업로드 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      setIsUploadingVideo(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const sendModeChange = (mode: 'video' | 'audio') => {
     setSongMode(mode);
@@ -699,7 +731,7 @@ export default function OperatorPanel({
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-rose-300 flex items-center gap-1">
                       <Film className="w-3.5 h-3.5" />
-                      뮤직비디오 영상 링크 설정 (YouTube / MP4 / Vimeo)
+                      뮤직비디오 영상 설정 (로컬 PC 파일 및 유튜브)
                     </span>
                     {videoBroadcastSuccess && (
                       <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5 animate-bounce">
@@ -709,48 +741,107 @@ export default function OperatorPanel({
                     )}
                   </div>
 
-                  {/* Video URL Input & Broadcast Button */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Hidden File Input for Local MP4 */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleLocalFileSelect}
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    className="hidden"
+                  />
+
+                  {/* Video URL or Local Path Input & Action Buttons */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
                     <div className="relative flex-1">
                       <input
                         type="text"
                         value={inputVideoUrl}
                         onChange={(e) => setInputVideoUrl(e.target.value)}
-                        placeholder="유튜브 링크 (예: https://youtu.be/... 또는 MP4 URL)"
-                        className="w-full py-1.5 pl-7 pr-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                        placeholder="로컬 PC 파일 경로(예: /Users/.../song.mp4, C:\... 또는 파일명) 또는 유튜브 링크"
+                        className="w-full py-2 pl-7 pr-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
                       />
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2.5" />
+                      <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-3" />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => sendBroadcastVideoUrl(inputVideoUrl)}
-                      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:opacity-90 text-white font-black text-xs shrink-0 shadow-md shadow-rose-500/20 transition-all flex items-center gap-1"
-                    >
-                      <span>빔 송출 적용</span>
-                    </button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingVideo}
+                        className="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all flex items-center gap-1"
+                        title="로컬 PC에서 MP4 파일 찾기"
+                      >
+                        {isUploadingVideo ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                            <span>로딩 중...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Folder className="w-3.5 h-3.5 text-amber-400" />
+                            <span>PC 파일 찾기</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => sendBroadcastVideoUrl(inputVideoUrl)}
+                        disabled={!inputVideoUrl.trim() || isUploadingVideo}
+                        className="px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:opacity-90 disabled:opacity-40 text-white font-black text-xs shadow-md shadow-rose-500/20 transition-all flex items-center gap-1"
+                      >
+                        <span>빔 송출 적용</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Quick video status pill */}
                   {videoUrl ? (
-                    <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px] flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-slate-300 truncate">
+                    <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-slate-300 min-w-0 flex-1">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                        <span className="text-amber-400 font-mono">
-                          [{parseVideoUrl(videoUrl).type.toUpperCase()}]
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                          parseVideoUrl(videoUrl).type === 'local'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : parseVideoUrl(videoUrl).type === 'youtube'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                            : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                        }`}>
+                          {parseVideoUrl(videoUrl).type === 'local'
+                            ? '💻 로컬 MP4 파일'
+                            : parseVideoUrl(videoUrl).type === 'youtube'
+                            ? '🔴 YouTube'
+                            : '🌐 웹 비디오'}
                         </span>
-                        <span className="truncate">{videoUrl}</span>
+                        <span className="font-mono text-slate-200 truncate text-[11px]" title={videoUrl}>
+                          {parseVideoUrl(videoUrl).fileName || videoUrl}
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => sendBroadcastVideoUrl(videoUrl)}
-                        className="text-sky-400 hover:text-sky-300 font-bold shrink-0 ml-2 text-[10px]"
-                      >
-                        재송출
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => sendBroadcastVideoUrl(videoUrl)}
+                          className="text-sky-400 hover:text-sky-300 font-bold text-[11px]"
+                        >
+                          재송출
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVideoUrl('');
+                            setInputVideoUrl('');
+                            try { localStorage.removeItem('reveal_day_video_url'); } catch {}
+                          }}
+                          className="text-slate-500 hover:text-rose-400 font-bold text-[10px]"
+                        >
+                          초기화
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="text-[10px] text-slate-400">
-                      * 영상 링크를 입력하고 [빔 송출 적용]을 누르면 빔프로젝터 화면에 영상이 즉시 재생됩니다.
+                    <div className="text-[10px] text-slate-400 space-y-0.5">
+                      <div>* <strong>로컬 파일</strong>: PC 내 MP4 경로(예: <code className="text-amber-300">/Users/a09721/Downloads/song.mp4</code> 또는 <code className="text-amber-300">C:\...</code>)를 입력하거나 <strong>[PC 파일 찾기]</strong> 버튼을 누르면 즉시 연결됩니다.</div>
+                      <div>* <strong>유튜브</strong>: 유튜브 주소(예: <code className="text-amber-300">https://youtu.be/...</code>) 입력 시에도 자동 호환됩니다.</div>
                     </div>
                   )}
                 </div>

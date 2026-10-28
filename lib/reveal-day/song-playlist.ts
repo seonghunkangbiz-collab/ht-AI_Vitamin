@@ -269,9 +269,10 @@ export const AI_VITAMIN_PLAYLIST: SongTrack[] = [
 ];
 
 export interface ParsedVideoInfo {
-  type: 'youtube' | 'direct' | 'vimeo' | 'unknown';
+  type: 'youtube' | 'direct' | 'vimeo' | 'local' | 'unknown';
   embedUrl: string;
   originalUrl: string;
+  fileName?: string;
   isValid: boolean;
 }
 
@@ -279,10 +280,13 @@ export function parseVideoUrl(inputUrl?: string): ParsedVideoInfo {
   if (!inputUrl || typeof inputUrl !== 'string') {
     return { type: 'unknown', embedUrl: '', originalUrl: '', isValid: false };
   }
-  const trimmed = inputUrl.trim();
+  let trimmed = inputUrl.trim();
   if (!trimmed) {
     return { type: 'unknown', embedUrl: '', originalUrl: '', isValid: false };
   }
+
+  // Remove surrounding quotes if user copied path with quotes
+  trimmed = trimmed.replace(/^["']|["']$/g, '');
 
   // 1. YouTube Matcher
   // Matches:
@@ -315,8 +319,8 @@ export function parseVideoUrl(inputUrl?: string): ParsedVideoInfo {
     };
   }
 
-  // 3. Direct HTML5 Video File (.mp4, .webm, .ogg, .mov, etc.)
-  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('blob:') || trimmed.startsWith('data:video')) {
+  // 3. Blob / Data URL (from in-memory file selection)
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:video')) {
     return {
       type: 'direct',
       embedUrl: trimmed,
@@ -325,12 +329,55 @@ export function parseVideoUrl(inputUrl?: string): ParsedVideoInfo {
     };
   }
 
-  // 4. Fallback: Generic URL (attempt iframe/direct)
+  // 4. Already an API route stream URL
+  if (trimmed.startsWith('/api/reveal-day/video-file')) {
+    let name = 'local_video.mp4';
+    try {
+      const match = trimmed.match(/[?&]path=([^&]+)/);
+      if (match && match[1]) {
+        name = decodeURIComponent(match[1]).split(/[\/\\]/).pop() || name;
+      }
+    } catch {}
+    return {
+      type: 'local',
+      embedUrl: trimmed,
+      originalUrl: trimmed,
+      fileName: name,
+      isValid: true
+    };
+  }
+
+  // 5. External HTTP / HTTPS URL
   if (/^https?:\/\//i.test(trimmed)) {
     return {
       type: 'direct',
       embedUrl: trimmed,
       originalUrl: trimmed,
+      isValid: true
+    };
+  }
+
+  // 6. Local PC File Path or File Name (e.g. /Users/.../song.mp4, C:\...song.mp4, /video/song.mp4, song.mp4)
+  const isVideoExt = /\.(mp4|mov|webm|m4v|mkv|avi)$/i.test(trimmed);
+  const isLocalPathPattern =
+    trimmed.startsWith('file://') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('~') ||
+    /^[a-zA-Z]:[\\/]/.test(trimmed) ||
+    trimmed.includes('/') ||
+    trimmed.includes('\\');
+
+  if (isVideoExt || isLocalPathPattern) {
+    let cleanLocal = trimmed;
+    if (cleanLocal.startsWith('file://')) {
+      cleanLocal = decodeURIComponent(cleanLocal.replace(/^file:\/\//, ''));
+    }
+    const fileName = cleanLocal.split(/[\/\\]/).pop() || cleanLocal;
+    return {
+      type: 'local',
+      embedUrl: `/api/reveal-day/video-file?path=${encodeURIComponent(cleanLocal)}`,
+      originalUrl: trimmed,
+      fileName,
       isValid: true
     };
   }
