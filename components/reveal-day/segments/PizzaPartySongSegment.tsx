@@ -176,7 +176,7 @@ export default function PizzaPartySongSegment({
   }, [eventId, videoDuration]);
 
   // Apply received video commands from Operator Panel
-  const applyVideoControl = useCallback((action: string, currentTime?: number) => {
+  const applyVideoControl = useCallback((action: string, currentTime?: number, targetVolume?: number, targetMuted?: boolean) => {
     if (action === 'video_play') {
       if (videoRef.current) {
         if (typeof currentTime === 'number' && Math.abs(videoRef.current.currentTime - currentTime) > 1.5) {
@@ -208,6 +208,18 @@ export default function PizzaPartySongSegment({
           JSON.stringify({ event: 'command', func: 'seekTo', args: [currentTime, true] }),
           '*'
         );
+      }
+    } else if (action === 'video_volume') {
+      if (videoRef.current) {
+        if (typeof targetVolume === 'number') {
+          const clamped = Math.max(0, Math.min(1, targetVolume));
+          videoRef.current.volume = clamped;
+          setVolume(clamped);
+        }
+        if (typeof targetMuted === 'boolean') {
+          videoRef.current.muted = targetMuted;
+          setIsMuted(targetMuted);
+        }
       }
     }
   }, []);
@@ -265,8 +277,8 @@ export default function PizzaPartySongSegment({
           setVideoUrl('');
           setParsedVideo(parseVideoUrl(''));
         } else if (e.data?.type === 'VIDEO_PLAYBACK_ACTION') {
-          const { action, currentTime } = e.data;
-          applyVideoControl(action, currentTime);
+          const { action, currentTime, volume: vVol, muted: vMuted } = e.data;
+          applyVideoControl(action, currentTime, vVol, vMuted);
         }
       };
     } catch {}
@@ -486,9 +498,10 @@ export default function PizzaPartySongSegment({
           } else if (
             data.action === 'video_play' ||
             data.action === 'video_pause' ||
-            data.action === 'video_seek'
+            data.action === 'video_seek' ||
+            data.action === 'video_volume'
           ) {
-            applyVideoControl(data.action, data.currentTime);
+            applyVideoControl(data.action, data.currentTime, data.volume, data.muted);
           }
         })
         .subscribe();
@@ -644,7 +657,7 @@ export default function PizzaPartySongSegment({
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-widest flex items-center gap-1.5">
             <Pizza className="w-3.5 h-3.5 text-amber-400" />
-            <span>Segment 6 & 8</span>
+            <span>Segment 7</span>
           </span>
           <div>
             <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">

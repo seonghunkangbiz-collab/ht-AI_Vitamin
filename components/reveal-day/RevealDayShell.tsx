@@ -324,6 +324,7 @@ export default function RevealDayShell({
               onOpenPreflight={() => setShowPreflight(true)}
               onNavigateCapsule={onNavigateCapsule}
               capsulesCount={capsules.length}
+              capsules={capsules}
               onAdjustPizzaTimer={onAdjustPizzaTimer}
             />
           </aside>

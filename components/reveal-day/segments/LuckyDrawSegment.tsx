@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Award, Sparkles, Trophy, CheckCircle, ShieldCheck } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { RevealDrawItem } from '@/lib/reveal-day/types';
 import { getUserTitle } from '@/lib/reveal-day/titles';
 
@@ -30,6 +31,51 @@ export default function LuckyDrawSegment({
   });
 
   const latestWinner = activeDraw || (sortedRecentFirst.length > 0 ? sortedRecentFirst[0] : null);
+
+  // Trigger celebration confetti on beam display when a winner is announced
+  const lastFiredWinnerIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!latestWinner || latestWinner.id === lastFiredWinnerIdRef.current) return;
+    lastFiredWinnerIdRef.current = latestWinner.id;
+
+    try {
+      const end = Date.now() + 3.5 * 1000;
+      const colors = ['#f59e0b', '#fbbf24', '#38bdf8', '#a855f7', '#ec4899', '#10b981'];
+
+      (function frame() {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 60,
+          origin: { x: 0.05, y: 0.65 },
+          colors,
+          zIndex: 9999
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 60,
+          origin: { x: 0.95, y: 0.65 },
+          colors,
+          zIndex: 9999
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      })();
+
+      // Center grand burst
+      confetti({
+        particleCount: 120,
+        spread: 100,
+        origin: { y: 0.55 },
+        colors: ['#f59e0b', '#fbbf24', '#ffffff', '#ffd700'],
+        zIndex: 9999
+      });
+    } catch {}
+  }, [latestWinner?.id]);
 
   return (
     <div className="w-full h-full flex flex-col justify-between p-10 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 text-white relative overflow-hidden select-none">

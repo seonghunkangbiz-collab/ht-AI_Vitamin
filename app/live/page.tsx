@@ -9,6 +9,7 @@ import { getCurrentUser, setCurrentUser } from '@/lib/db';
 import { useRevealDayRealtime } from '@/hooks/useRevealDayRealtime';
 import { getSupabaseClient } from '@/lib/supabase';
 import { formatNameWithTitle } from '@/lib/reveal-day/titles';
+import { ORDERED_SEGMENTS, SEGMENT_METADATA } from '@/lib/reveal-day/state-machine';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -223,8 +224,11 @@ function LiveAttendeeContent() {
       }
     } catch {}
 
-    // 2. Confetti on attendee device
+    // 2. Confetti on attendee device & Haptic Feedback
     try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(25);
+      }
       confetti({
         particleCount: trimmedMessage ? 35 : 16,
         spread: trimmedMessage ? 55 : 35,
@@ -369,6 +373,23 @@ function LiveAttendeeContent() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Real-time Stage Status Banner */}
+        <div className="px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-slate-400 font-medium">현재 무대 순서:</span>
+          </div>
+          <div className="flex items-center gap-1.5 font-bold text-white">
+            <span className="text-sky-400 font-mono text-[11px]">
+              Step {ORDERED_SEGMENTS.indexOf(currentSegment) + 1}/{ORDERED_SEGMENTS.length}
+            </span>
+            <span className="text-slate-500">•</span>
+            <span className="text-amber-300">
+              {SEGMENT_METADATA[currentSegment]?.title || currentSegment}
+            </span>
+          </div>
         </div>
 
         {/* Lucky Draw Winner Announcement Popup */}

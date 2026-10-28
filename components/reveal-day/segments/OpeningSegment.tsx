@@ -11,7 +11,7 @@ interface OpeningSegmentProps {
   mode: 'live' | 'rehearsal';
 }
 
-export default function OpeningSegment({ checkinCount, totalAttendees = 24, mode }: OpeningSegmentProps) {
+export default function OpeningSegment({ checkinCount, totalAttendees = 26, mode }: OpeningSegmentProps) {
   const isRehearsal = mode === 'rehearsal';
   const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://www.ht-ai-vitamin.app';
   

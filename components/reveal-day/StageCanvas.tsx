@@ -83,7 +83,7 @@ export default function StageCanvas({
           {currentSegment === 'opening' && (
             <OpeningSegment
               checkinCount={checkinCount}
-              totalAttendees={24}
+              totalAttendees={26}
               mode={mode}
             />
           )}

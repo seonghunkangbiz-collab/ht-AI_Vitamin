@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RevealSegment, RevealEvent, RevealPublicState, MatePairReveal, RevealDrawItem } from '@/lib/reveal-day/types';
+import { RevealSegment, RevealEvent, RevealPublicState, MatePairReveal, RevealDrawItem, RevealTimeCapsuleItem } from '@/lib/reveal-day/types';
 import { SEGMENT_METADATA, ORDERED_SEGMENTS } from '@/lib/reveal-day/state-machine';
 import { getUserTitle } from '@/lib/reveal-day/titles';
 import { 
@@ -18,6 +18,7 @@ import {
   Sparkles,
   FileText,
   Volume2,
+  VolumeX,
   Square,
   Pause,
   Clock,
@@ -47,6 +48,7 @@ interface OperatorPanelProps {
   event: RevealEvent;
   publicState: RevealPublicState;
   draws?: RevealDrawItem[];
+  capsules?: RevealTimeCapsuleItem[];
   onTransitionSegment: (nextSegment: RevealSegment) => void;
   onAdvanceMateIndex: (type: 'reveal_next' | 'reveal_batch' | 'next_batch' | 'prev_batch') => void;
   onExecuteDraw: (roundNumber: number, prizeName: string) => void;
@@ -65,6 +67,7 @@ export default function OperatorPanel({
   event,
   publicState,
   draws = [],
+  capsules = [],
   onTransitionSegment,
   onAdvanceMateIndex,
   onExecuteDraw,
@@ -73,7 +76,7 @@ export default function OperatorPanel({
   onFactoryReset,
   onOpenPreflight,
   onNavigateCapsule,
-  capsulesCount = 24,
+  capsulesCount = 26,
   onAdjustPizzaTimer,
   isProcessing
 }: OperatorPanelProps) {
@@ -111,6 +114,8 @@ export default function OperatorPanel({
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [beamVolume, setBeamVolume] = useState<number>(0.9);
+  const [isBeamMuted, setIsBeamMuted] = useState<boolean>(false);
   const operatorVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const isOperatorRemoteActionRef = React.useRef<boolean>(false);
 
@@ -391,6 +396,40 @@ export default function OperatorPanel({
     } catch {}
   };
 
+  const sendBeamVolume = (volume: number, muted: boolean) => {
+    setBeamVolume(volume);
+    setIsBeamMuted(muted);
+
+    // 1. BroadcastChannel (0ms latency for dual monitor on same PC)
+    try {
+      const bc = new BroadcastChannel('reveal_local_video_channel');
+      bc.postMessage({
+        type: 'VIDEO_PLAYBACK_ACTION',
+        action: 'video_volume',
+        volume,
+        muted,
+      });
+      bc.close();
+    } catch {}
+
+    // 2. Supabase broadcast (remote devices)
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: {
+            action: 'video_volume',
+            volume,
+            muted,
+            mode: 'video',
+          },
+        });
+      }
+    } catch {}
+  };
+
   // Automatically keep drawRound synced to nextAvailableRound if drawRound is already completed or lower
   React.useEffect(() => {
     if (completedRounds.includes(drawRound) || drawRound < nextAvailableRound) {
@@ -451,6 +490,8 @@ export default function OperatorPanel({
               onClick={() => {
                 if (currentSegment === 'opening') {
                   setShowConfirmModal('start_event');
+                } else if (['mate_reveal', 'lucky_draw', 'time_capsule'].includes(currentSegment)) {
+                  setShowConfirmModal('next_segment');
                 } else {
                   onTransitionSegment(nextSegment);
                 }
@@ -470,7 +511,7 @@ export default function OperatorPanel({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-sky-400">참석자 체크인 세션 관리</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-bold">
-                체크인: <strong>{publicState.checkinCount || 0}</strong> / 24명
+                체크인: <strong>{publicState.checkinCount || 0}</strong> / 26명
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -559,7 +600,7 @@ export default function OperatorPanel({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-indigo-300">AI Time Capsule Spotlight 넘기기</span>
               <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                {(publicState.currentCapsuleIndex || 0) + 1} / {capsulesCount || 24}
+                {(publicState.currentCapsuleIndex || 0) + 1} / {capsulesCount || 26}
               </span>
             </div>
 
@@ -567,7 +608,7 @@ export default function OperatorPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const max = capsulesCount || 24;
+                  const max = capsulesCount || 26;
                   const cur = publicState.currentCapsuleIndex || 0;
                   const prev = cur === 0 ? max - 1 : cur - 1;
                   if (onNavigateCapsule) onNavigateCapsule(prev);
@@ -582,7 +623,7 @@ export default function OperatorPanel({
               <button
                 type="button"
                 onClick={() => {
-                  const max = capsulesCount || 24;
+                  const max = capsulesCount || 26;
                   const cur = publicState.currentCapsuleIndex || 0;
                   const next = cur === max - 1 ? 0 : cur + 1;
                   if (onNavigateCapsule) onNavigateCapsule(next);
@@ -594,8 +635,29 @@ export default function OperatorPanel({
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {capsules && capsules.length > 0 && (
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
+                <span className="text-[11px] text-slate-400 shrink-0 font-medium">대상자 바로가기:</span>
+                <select
+                  value={publicState.currentCapsuleIndex || 0}
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    if (onNavigateCapsule) onNavigateCapsule(idx);
+                  }}
+                  className="flex-1 bg-slate-900 border border-indigo-500/40 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                >
+                  {capsules.map((c, idx) => (
+                    <option key={c.id || c.recipientName || idx} value={idx}>
+                      {idx + 1}. {c.recipientName} ({c.recipientTeam || 'HT 사업본부'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <p className="text-[10px] text-slate-500">
-              * 다음 캡슐을 클릭하면 빔프로젝터 송출 화면과 실시간으로 연동되어 동일한 타임캡슐이 즉시 표시됩니다.
+              * 다음 캡슐을 클릭하거나 대상자를 선택하면 빔프로젝터 송출 화면과 실시간으로 연동되어 동일한 타임캡슐이 즉시 표시됩니다.
             </p>
           </div>
         )}
@@ -608,7 +670,7 @@ export default function OperatorPanel({
                 <span>AI Lucky Draw 추첨 콘솔</span>
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
-                24명 자동 풀 등록 (1인 1당첨)
+                26명 자동 풀 등록 (1인 1당첨)
               </span>
             </div>
 
@@ -1161,6 +1223,50 @@ export default function OperatorPanel({
                               <span>처음부터</span>
                             </button>
                           </div>
+
+                          {/* Beam Display Remote Volume & Mute Control */}
+                          <div className="flex items-center gap-3 pt-2.5 px-1 border-t border-slate-800/80 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => sendBeamVolume(beamVolume, !isBeamMuted)}
+                              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+                                isBeamMuted
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                              }`}
+                            >
+                              {isBeamMuted ? (
+                                <>
+                                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                                  <span>빔 원격 음소거</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>빔 볼륨 ON</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="flex-1 flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400 font-mono">빔 음량:</span>
+                              <input
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={isBeamMuted ? 0 : beamVolume}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  sendBeamVolume(val, val === 0);
+                                }}
+                                className="flex-1 h-1.5 rounded-lg bg-slate-800 accent-emerald-400 cursor-pointer"
+                              />
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold w-9 text-right">
+                                {isBeamMuted ? '0%' : `${Math.round(beamVolume * 100)}%`}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </>
@@ -1573,6 +1679,38 @@ export default function OperatorPanel({
                 className="flex-1 py-2.5 rounded-xl bg-sky-500 text-white font-bold text-xs hover:bg-sky-400"
               >
                 행사 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal === 'next_segment' && nextSegment && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-white shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <AlertTriangle className="w-6 h-6" />
+              <h3 className="font-bold text-base">다음 순서로 전환 확인</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              현재 <strong className="text-amber-300">{SEGMENT_METADATA[currentSegment].title}</strong> 세션이 진행 중입니다.<br />
+              다음 순서인 <strong className="text-sky-300">{SEGMENT_METADATA[nextSegment].title}</strong>(으)로 빔 화면과 참가자 화면을 모두 전환하시겠습니까?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs font-bold hover:bg-slate-700"
+              >
+                취소 (현재 세션 유지)
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(null);
+                  onTransitionSegment(nextSegment);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-xs hover:opacity-95"
+              >
+                다음 순서로 이동
               </button>
             </div>
           </div>

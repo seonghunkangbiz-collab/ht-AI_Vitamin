@@ -147,7 +147,9 @@ export default function MateRevealSegment({
                       key={observer.id}
                       className={`p-3.5 rounded-2xl transition-all duration-500 border ${
                         isRevealed
-                          ? 'bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 border-sky-400/50 shadow-lg shadow-sky-500/10'
+                          ? observer.isGuessedCorrectly
+                            ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-amber-500/25 border-amber-400 shadow-xl shadow-amber-500/20 ring-1 ring-amber-400/60'
+                            : 'bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 border-sky-400/50 shadow-lg shadow-sky-500/10'
                           : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
                       }`}
                     >
@@ -158,7 +160,7 @@ export default function MateRevealSegment({
                         {isRevealed ? (
                           <div className="flex items-center gap-1.5">
                             {observer.isGuessedCorrectly && (
-                              <span className="flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 rounded-full animate-pulse shadow-sm">
+                              <span className="flex items-center gap-1 text-[10px] font-black text-amber-950 bg-gradient-to-r from-amber-300 to-yellow-400 px-2.5 py-0.5 rounded-full animate-pulse shadow-md">
                                 <span>🎯</span>
                                 <span>추측 적중!</span>
                               </span>
@@ -180,11 +182,13 @@ export default function MateRevealSegment({
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all ${
                             isRevealed
-                              ? 'bg-gradient-to-tr from-sky-400 to-indigo-600 text-white shadow-md'
+                              ? observer.isGuessedCorrectly
+                                ? 'bg-gradient-to-tr from-amber-400 to-yellow-500 text-slate-950 shadow-lg shadow-amber-500/30'
+                                : 'bg-gradient-to-tr from-sky-400 to-indigo-600 text-white shadow-md'
                               : 'bg-slate-700/60 text-slate-400'
                           }`}
                         >
-                          {isRevealed ? '✨' : '?'}
+                          {isRevealed ? (observer.isGuessedCorrectly ? '🎯' : '✨') : '?'}
                         </div>
                         <div className="flex-1 min-w-0">
                           {isRevealed ? (

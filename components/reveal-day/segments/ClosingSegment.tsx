@@ -13,7 +13,7 @@ export default function ClosingSegment() {
       {/* Header */}
       <div className="flex items-center justify-between z-10">
         <div>
-          <span className="text-xs font-bold tracking-widest text-sky-400 uppercase">Segment 7</span>
+          <span className="text-xs font-bold tracking-widest text-sky-400 uppercase">Segment 6</span>
           <h2 className="text-2xl font-black text-white">Closing Remarks</h2>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
