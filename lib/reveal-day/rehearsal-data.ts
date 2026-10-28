@@ -29,14 +29,23 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
     // Inbound: The observers who secretly watched and cared for this target
     let targetAssignments = allAssignments.filter(a => a.targetUserId === target.id);
 
-    // If an original participant has no inbound assignment, assign 2 cross-team peers from the 24 participants
-    if (targetAssignments.length === 0) {
-      const obs1 = REHEARSAL_USERS[(targetIdx + 5) % REHEARSAL_USERS.length];
-      const obs2 = REHEARSAL_USERS[(targetIdx + 11) % REHEARSAL_USERS.length];
-      targetAssignments = [
-        { id: `m-auto-${target.id}-1`, userId: obs1.id, targetUserId: target.id, assignedAt: '2026-09-09T03:16:26.732Z' },
-        { id: `m-auto-${target.id}-2`, userId: obs2.id, targetUserId: target.id, assignedAt: '2026-09-09T03:16:26.732Z' }
-      ];
+    // Ensure EVERY participant has EXACTLY 2 secret mates (no participant left with only 1 mate)
+    if (targetAssignments.length < 2) {
+      const candidates = REHEARSAL_USERS.filter(
+        u => u.id !== target.id && !targetAssignments.some(a => a.userId === u.id)
+      );
+      const crossTeamCandidates = candidates.filter(u => u.team !== target.team);
+      const pool = crossTeamCandidates.length >= 2 ? crossTeamCandidates : candidates;
+
+      while (targetAssignments.length < 2 && pool.length > 0) {
+        const nextObs = pool[(targetIdx * 5 + targetAssignments.length * 7) % pool.length];
+        targetAssignments.push({
+          id: `m-supp-${target.id}-${targetAssignments.length + 1}`,
+          userId: nextObs.id,
+          targetUserId: target.id,
+          assignedAt: '2026-09-09T03:16:26.732Z'
+        });
+      }
     }
 
     // Prioritize observers who left notes/praises, selecting 2 secret mates per target card

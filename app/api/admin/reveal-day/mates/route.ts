@@ -51,10 +51,38 @@ async function getEventMatePairs(eventId: string): Promise<MatePairReveal[]> {
 
   // Group by target user to maintain clean batches
   activeUsers.forEach((target, targetIdx) => {
-    const targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
+    let targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
+
+    // Ensure EVERY participant has EXACTLY 2 secret mates (supplement if fewer than 2)
+    if (targetAssignments.length < 2) {
+      const candidates = activeUsers.filter(
+        u => u.id !== target.id && !targetAssignments.some(a => a.user_id === u.id)
+      );
+      const crossTeam = candidates.filter(u => u.team !== target.team);
+      const pool = crossTeam.length >= 2 ? crossTeam : candidates;
+      while (targetAssignments.length < 2 && pool.length > 0) {
+        const nextObs = pool[(targetIdx * 5 + targetAssignments.length * 7) % pool.length];
+        targetAssignments.push({
+          id: `m-live-supp-${target.id}-${targetAssignments.length + 1}`,
+          user_id: nextObs.id,
+          target_user_id: target.id,
+          assigned_at: '2026-09-09T03:16:26.732Z'
+        });
+      }
+    }
+
+    // Prioritize observers with praises/notes, take exactly 2
+    const selectedAssignments = targetAssignments
+      .sort((a, b) => {
+        const hasPraiseA = (praises || []).some(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
+        const hasPraiseB = (praises || []).some(p => p.sender_user_id === b.user_id && p.recipient_user_id === target.id);
+        return (hasPraiseB ? 1 : 0) - (hasPraiseA ? 1 : 0);
+      })
+      .slice(0, 2);
+
     const batchIndex = Math.floor(targetIdx / 4); // Batches of 4 targets each
 
-    targetAssignments.forEach(a => {
+    selectedAssignments.forEach(a => {
       const observer = userMap.get(a.user_id);
       const matchedPraise = (praises || []).find(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
       const matchedNote = activeNotes.find(n => n.user_id === a.user_id && n.target_user_id === target.id);

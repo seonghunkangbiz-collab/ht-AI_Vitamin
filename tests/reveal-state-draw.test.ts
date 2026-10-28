@@ -653,6 +653,34 @@ test('Test 31: Recent additions (이현서, 최지훈) excluded from 2-month his
   assert.equal(REHEARSAL_TIME_CAPSULES.some(c => c.recipientName === '이현서' || c.recipientName === '최지훈'), false);
 });
 
+test('Test 32: Exactly 2 Secret Mates per participant (24 targets x 2 = 48 pairs) and balanced 6 batches', async () => {
+  const { REHEARSAL_MATE_PAIRS, REHEARSAL_USERS } = await import('@/lib/reveal-day/rehearsal-data');
+
+  // Total pairs must be exactly 48 (24 targets * 2 mates)
+  assert.equal(REHEARSAL_MATE_PAIRS.length, 48, 'Total pairs must be exactly 48');
+
+  // Check every target has exactly 2 observers
+  for (const user of REHEARSAL_USERS) {
+    const pairsForTarget = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === user.id);
+    assert.equal(pairsForTarget.length, 2, `Target ${user.name} (${user.id}) must have exactly 2 observers`);
+    
+    // The two observers must be different people
+    assert.notEqual(pairsForTarget[0].observerId, pairsForTarget[1].observerId, `Target ${user.name} observers must be distinct`);
+    // Observers cannot be the target themselves
+    assert.notEqual(pairsForTarget[0].observerId, user.id, `Observer cannot be target self`);
+    assert.notEqual(pairsForTarget[1].observerId, user.id, `Observer cannot be target self`);
+  }
+
+  // Exactly 6 batches (batchIndex 0 to 5), each batch having 8 pairs (4 targets * 2 observers)
+  for (let b = 0; b < 6; b++) {
+    const batchPairs = REHEARSAL_MATE_PAIRS.filter(p => p.batchIndex === b);
+    assert.equal(batchPairs.length, 8, `Batch ${b} must contain exactly 8 pairs`);
+    const batchTargets = new Set(batchPairs.map(p => p.targetId));
+    assert.equal(batchTargets.size, 4, `Batch ${b} must contain exactly 4 distinct targets`);
+  }
+});
+
+
 
 
 

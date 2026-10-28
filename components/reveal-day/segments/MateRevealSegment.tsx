@@ -91,7 +91,7 @@ export default function MateRevealSegment({
         </div>
         <div className="flex items-center gap-3">
           <div className="px-3.5 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-xs font-bold text-indigo-300">
-            진행 그룹 {currentBatchIndex + 1} / {pairs.length > 0 ? Math.max(...pairs.map(p => p.batchIndex)) + 1 : 7}
+            진행 그룹 {currentBatchIndex + 1} / {pairs.length > 0 ? Math.max(...pairs.map(p => p.batchIndex)) + 1 : 6}
           </div>
           <div className="px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
             공개 현황: <span className="text-sky-400 font-bold">{currentRevealIndex}</span> / {pairs.length}건
@@ -127,7 +127,7 @@ export default function MateRevealSegment({
                   {getUserTitle(info.targetName)}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 {info.observers.length > 0 ? `${info.observers.length}명의 ` : ''}비타민</p>
+              <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 2명의 비타민</p>
             </div>
 
             {/* Observers Cards */}
@@ -228,25 +228,59 @@ export default function MateRevealSegment({
 
                       {/* Revealed Message from Secret Mate */}
                       {isRevealed && observer.praiseMessage && (
-                        <div className="mt-2.5 p-2 rounded-xl bg-slate-900/90 border border-amber-400/30 text-xs">
-                          <div className="flex items-center gap-1 text-[10px] text-amber-300 font-bold mb-0.5">
-                            <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
-                            <span>메이트가 전한 칭찬</span>
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-900/95 to-slate-900/95 border border-amber-400/30 border-l-2 border-l-amber-400 text-xs shadow-inner">
+                          <div className="flex items-center justify-between text-[10px] text-amber-300 font-bold mb-1">
+                            <div className="flex items-center gap-1">
+                              <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
+                              <span>메이트가 전한 칭찬</span>
+                            </div>
+                            {observer.praiseMessage.length > 60 && (
+                              <span className="text-[9px] text-amber-400/70 font-normal">스크롤하여 전체보기</span>
+                            )}
                           </div>
-                          <p className="italic text-[11px] text-slate-200 line-clamp-3 leading-snug">
-                            &ldquo;{observer.praiseMessage}&rdquo;
-                          </p>
+                          <div className="max-h-24 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-transparent">
+                            <p className={`italic ${observer.praiseMessage.length > 70 ? 'text-[10.5px]' : 'text-[11.5px]'} leading-relaxed text-slate-200 whitespace-pre-line break-words`}>
+                              &ldquo;{observer.praiseMessage}&rdquo;
+                            </p>
+                          </div>
                         </div>
                       )}
                       {isRevealed && observer.noteMessage && !observer.praiseMessage && (
-                        <div className="mt-2.5 p-2 rounded-xl bg-slate-900/90 border border-sky-400/30 text-xs">
-                          <div className="flex items-center gap-1 text-[10px] text-sky-300 font-bold mb-0.5">
-                            <Sparkles className="w-3 h-3 text-sky-400" />
-                            <span>메이트의 관찰 메모</span>
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-sky-500/10 via-slate-900/95 to-slate-900/95 border border-sky-400/30 border-l-2 border-l-sky-400 text-xs shadow-inner">
+                          <div className="flex items-center justify-between text-[10px] text-sky-300 font-bold mb-1">
+                            <div className="flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-sky-400" />
+                              <span>메이트의 관찰 메모</span>
+                            </div>
+                            {observer.noteMessage.length > 60 && (
+                              <span className="text-[9px] text-sky-400/70 font-normal">스크롤하여 전체보기</span>
+                            )}
                           </div>
-                          <p className="italic text-[11px] text-slate-200 line-clamp-3 leading-snug">
-                            &ldquo;{observer.noteMessage}&rdquo;
-                          </p>
+                          <div className="max-h-24 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-sky-500/40 scrollbar-track-transparent">
+                            <p className={`italic ${observer.noteMessage.length > 70 ? 'text-[10.5px]' : 'text-[11.5px]'} leading-relaxed text-slate-200 whitespace-pre-line break-words`}>
+                              &ldquo;{observer.noteMessage}&rdquo;
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Secondary note if both praise and separate note exist */}
+                      {isRevealed && observer.praiseMessage && observer.noteMessage && observer.praiseMessage !== observer.noteMessage && (
+                        <div className="mt-2 p-2 rounded-xl bg-slate-900/80 border border-sky-400/20 border-l-2 border-l-sky-400">
+                          <div className="flex items-center gap-1 text-[9.5px] text-sky-300 font-bold mb-0.5">
+                            <Sparkles className="w-2.5 h-2.5 text-sky-400" />
+                            <span>관찰 메모</span>
+                          </div>
+                          <div className="max-h-16 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-sky-500/30">
+                            <p className="text-[10px] text-slate-300 italic whitespace-pre-line break-words leading-relaxed">
+                              &ldquo;{observer.noteMessage}&rdquo;
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Gentle fallback if no message was recorded */}
+                      {isRevealed && !observer.praiseMessage && !observer.noteMessage && (
+                        <div className="mt-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-[10.5px] text-slate-400 italic text-center">
+                          &ldquo;보이지 않는 곳에서 항상 응원하고 있었습니다! ✨&rdquo;
                         </div>
                       )}
                     </div>
