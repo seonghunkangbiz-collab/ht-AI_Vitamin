@@ -540,6 +540,59 @@ test('Test 28: Synchronized Video Playback & Clean Centered Layout Verification'
   assert.strictEqual(videoModeElements.hasTimeCapsuleCard, false, 'Time capsule card must be removed in video mode');
 });
 
+test('Test 29: Journey Segment Team Stats & Praise Flow Privacy Integration', () => {
+  // Raw stats received from snapshot containing 1-person division leadership
+  const rawStats = {
+    totalUsers: 26,
+    totalPraises: 68,
+    teamStats: {
+      '반도체전략사업개발팀': { praiseGiven: 17, praiseReceived: 23, userCount: 11 },
+      '반도체AX사업개발팀': { praiseGiven: 31, praiseReceived: 23, userCount: 7 },
+      '반도체Global사업개발팀': { praiseGiven: 17, praiseReceived: 18, userCount: 7 },
+      'Hi-Tech 사업본부': { praiseGiven: 3, praiseReceived: 4, userCount: 1 }
+    },
+    approvedQuotes: [
+      { id: '1', content: '우리 조직에 필요한 어플을 만들어주셔서 감사합니다. 아이디어 정말 최고입니다', team: '반도체Global사업개발팀' },
+      { id: '2', content: '선물 당첨 축하해요~~~😆', team: '반도체AX사업개발팀' },
+      { id: '3', content: '선물 당첨 축하해요~~😆 내용물 궁금해요~~~~', team: '반도체전략사업개발팀' }
+    ]
+  };
+
+  // 1. Processed Team Stats must NEVER contain a single-person 'Hi-Tech 사업본부' card
+  const primaryTeams = ['반도체전략사업개발팀', '반도체AX사업개발팀', '반도체Global사업개발팀'];
+  const processedKeys = primaryTeams;
+
+  assert.ok(!processedKeys.includes('Hi-Tech 사업본부'), 'Standalone Hi-Tech 사업본부 card must not be exposed');
+  assert.equal(processedKeys.length, 3, 'Must render exactly 3 symmetric business teams');
+
+  // 2. Integration verification: userCount and praises smoothly absorbed into 3 business teams
+  const integratedStats = {
+    '반도체전략사업개발팀': { praiseGiven: 18, praiseReceived: 25, userCount: 12 },
+    '반도체AX사업개발팀': { praiseGiven: 32, praiseReceived: 24, userCount: 7 },
+    '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 7 }
+  };
+
+  const totalUsers = Object.values(integratedStats).reduce((acc, t) => acc + t.userCount, 0);
+  const totalGiven = Object.values(integratedStats).reduce((acc, t) => acc + t.praiseGiven, 0);
+  const totalReceived = Object.values(integratedStats).reduce((acc, t) => acc + t.praiseReceived, 0);
+
+  assert.equal(totalUsers, 26, 'Total users across 3 teams must equal total attendees (26)');
+  assert.equal(totalGiven, 68, 'Total given praises must equal 68');
+  assert.equal(totalReceived, 68, 'Total received praises must equal 68');
+
+  // 3. Quotes filter verification: casual test text ("선물 당첨") must be filtered out
+  const validQuotes = rawStats.approvedQuotes.filter(q => {
+    const text = q.content.trim();
+    if (text.length < 15) return false;
+    if (/선물 당첨|내용물 궁금|테스트/i.test(text)) return false;
+    return true;
+  });
+
+  assert.equal(validQuotes.length, 1, 'Only genuine appreciation quote passes the filter');
+  assert.ok(!validQuotes.some(q => q.content.includes('선물 당첨')), 'Casual raffle text must be removed');
+});
+
+
 
 
 

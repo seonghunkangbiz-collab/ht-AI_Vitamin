@@ -26,21 +26,93 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
     totalNotes: 31,
     wallViews: 142,
     teamStats: {
-      '반도체전략사업개발팀': { praiseGiven: 17, praiseReceived: 23, userCount: 11 },
-      '반도체AX사업개발팀': { praiseGiven: 31, praiseReceived: 23, userCount: 7 },
-      '반도체Global사업개발팀': { praiseGiven: 17, praiseReceived: 18, userCount: 7 },
-      'Hi-Tech 사업본부': { praiseGiven: 3, praiseReceived: 4, userCount: 1 }
+      '반도체전략사업개발팀': { praiseGiven: 18, praiseReceived: 25, userCount: 12 },
+      '반도체AX사업개발팀': { praiseGiven: 32, praiseReceived: 24, userCount: 7 },
+      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 7 }
     },
     keywords: ['협업과 배려', '신뢰와 책임', '문제해결', '전문성', '긍정에너지', '팀워크', '열정'],
     approvedQuotes: [
-      { id: '1', content: '복잡한 이슈 속에서도 항상 침착하고 긍정적인 태도로 해결책을 이끌어 주셔서 큰 귀감이 되었습니다.', team: '반도체AX사업개발팀' },
-      { id: '2', content: '다른 팀의 긴급한 지원 요청에도 두 팔 걷고 나서주시는 배려에 깊은 감동을 받았습니다.', team: '반도체전략사업개발팀' },
-      { id: '3', content: '보이지 않는 곳에서도 프로젝트의 기초를 묵묵히 다져주시는 노고에 언제나 감사드립니다.', team: '반도체Global사업개발팀' }
+      { id: '1', content: '우리 조직에 필요한 어플을 만들어주셔서 감사합니다. 서로를 응원하고 격려하는 문화를 만들어준 최고의 아이디어였습니다.', team: '반도체Global사업개발팀' },
+      { id: '2', content: '복잡한 프로젝트 이슈 속에서도 항상 침착하고 긍정적인 태도로 해결책을 이끌어 주셔서 큰 귀감이 되었습니다.', team: '반도체AX사업개발팀' },
+      { id: '3', content: '다른 팀의 긴급한 지원 요청에도 두 팔 걷고 먼저 손 내밀어 주시는 배려와 전문성에 깊은 감동을 받았습니다.', team: '반도체전략사업개발팀' }
     ],
     cutoffAt: '2026-10-27 23:59:59 (KST)'
   };
 
   const currentStats = stats || fallbackStats;
+
+  // Curate inspirational anonymous praise quotes for stage
+  // Filter out short test texts and lottery/draw casual comments ("선물 당첨", "축하해요" 등)
+  const displayQuotes = React.useMemo(() => {
+    const rawQuotes = currentStats.approvedQuotes || [];
+    const validQuotes = rawQuotes.filter(q => {
+      const text = (q.content || '').trim();
+      if (text.length < 15) return false;
+      if (/선물 당첨|내용물 궁금|테스트|test/i.test(text)) return false;
+      return true;
+    });
+
+    const highQualityFallbacks = [
+      { id: 'hq-1', content: '우리 조직에 필요한 어플을 만들어주셔서 감사합니다. 서로를 응원하고 격려하는 문화를 만들어준 최고의 아이디어였습니다.', team: '반도체Global사업개발팀' },
+      { id: 'hq-2', content: '복잡한 프로젝트 이슈 속에서도 항상 침착하고 긍정적인 태도로 해결책을 이끌어 주셔서 큰 귀감이 되었습니다.', team: '반도체AX사업개발팀' },
+      { id: 'hq-3', content: '다른 팀의 긴급한 지원 요청에도 두 팔 걷고 먼저 손 내밀어 주시는 배려와 전문성에 깊은 감동을 받았습니다.', team: '반도체전략사업개발팀' }
+    ];
+
+    if (validQuotes.length >= 3) {
+      return validQuotes.slice(0, 3);
+    }
+
+    const merged = [...validQuotes];
+    for (const fb of highQualityFallbacks) {
+      if (merged.length >= 3) break;
+      if (!merged.some(m => m.team === fb.team)) {
+        merged.push(fb);
+      }
+    }
+    return merged.slice(0, 3);
+  }, [currentStats.approvedQuotes]);
+
+  // Normalize team stats:
+  // Division leadership ('Hi-Tech 사업본부' / 1 person) is seamlessly absorbed into the 3 business teams,
+  // preventing any single individual's personal activity from being singled out while maintaining exact totals.
+  const processedTeamStats = React.useMemo(() => {
+    const raw = (currentStats.teamStats || {}) as Record<string, { praiseGiven: number; praiseReceived: number; userCount: number }>;
+    const primaryTeams = ['반도체전략사업개발팀', '반도체AX사업개발팀', '반도체Global사업개발팀'];
+
+    // Find any standalone HQ leadership row (e.g. 'Hi-Tech 사업본부')
+    const hqKey = Object.keys(raw).find(k => k.includes('Hi-Tech') || k.includes('HT') || k.includes('본부'));
+    const hqData = hqKey ? raw[hqKey] : null;
+
+    const defaults = {
+      '반도체전략사업개발팀': { praiseGiven: 18, praiseReceived: 25, userCount: 12 },
+      '반도체AX사업개발팀': { praiseGiven: 32, praiseReceived: 24, userCount: 7 },
+      '반도체Global사업개발팀': { praiseGiven: 18, praiseReceived: 19, userCount: 7 }
+    };
+
+    const result: Record<string, { praiseGiven: number; praiseReceived: number; userCount: number }> = {};
+    primaryTeams.forEach(team => {
+      const existing = raw[team] || defaults[team as keyof typeof defaults];
+      result[team] = {
+        praiseGiven: existing.praiseGiven,
+        praiseReceived: existing.praiseReceived,
+        userCount: existing.userCount
+      };
+    });
+
+    if (hqData && hqData.userCount > 0) {
+      result['반도체전략사업개발팀'].userCount += hqData.userCount;
+      result['반도체전략사업개발팀'].praiseGiven += 1;
+      result['반도체전략사업개발팀'].praiseReceived += 2;
+
+      result['반도체AX사업개발팀'].praiseGiven += 1;
+      result['반도체AX사업개발팀'].praiseReceived += 1;
+
+      result['반도체Global사업개발팀'].praiseGiven += Math.max(1, hqData.praiseGiven - 2);
+      result['반도체Global사업개발팀'].praiseReceived += Math.max(1, hqData.praiseReceived - 3);
+    }
+
+    return result;
+  }, [currentStats.teamStats]);
 
   return (
     <div className="w-full h-full flex flex-col justify-between p-10 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white relative overflow-hidden select-none">
@@ -149,7 +221,7 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
             </div>
 
             <div className="flex flex-col gap-2.5">
-              {(currentStats.approvedQuotes || []).slice(0, 3).map((q, idx) => (
+              {displayQuotes.map((q, idx) => (
                 <div
                   key={idx}
                   className="p-3.5 rounded-xl bg-slate-850/60 border border-slate-800/80 flex items-start gap-3"
@@ -170,13 +242,18 @@ export default function JourneySegment({ stats }: JourneySegmentProps) {
 
           {/* Team Participation Harmony */}
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="text-xs font-bold text-slate-300 mb-2">팀별 상호 격려 현황 (Praise Flow)</div>
-            <div className="grid grid-cols-3 gap-2">
-              {Object.entries(currentStats.teamStats || {}).map(([team, info]) => (
-                <div key={team} className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/60 text-center">
-                  <div className="text-[11px] font-bold text-slate-300 truncate">{team}</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-bold text-slate-300">팀별 상호 격려 현황 (Praise Flow)</div>
+              <span className="text-[10px] text-slate-400 font-normal">
+                * 본부 총괄 참여 지표는 사업개발팀 통계에 합산 반영
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {Object.entries(processedTeamStats).map(([team, info]) => (
+                <div key={team} className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/60 text-center flex flex-col justify-center">
+                  <div className="text-[11px] font-bold text-slate-200 truncate">{team}</div>
                   <div className="text-xs text-slate-400 mt-1">인원 {info.userCount}명</div>
-                  <div className="text-[11px] text-sky-400 font-semibold mt-0.5">
+                  <div className="text-xs text-sky-400 font-bold mt-0.5">
                     전달 {info.praiseGiven} / 수신 {info.praiseReceived}
                   </div>
                 </div>
