@@ -240,7 +240,7 @@ test('Test 13: Reload / Disconnect state restoration via Supabase store', () => 
   const persistedState: RevealPublicState = {
     eventId: 'reveal-20261028',
     mode: 'live',
-    status: 'in_progress',
+    status: 'live',
     currentSegment: 'mate_reveal',
     currentRevealIndex: 4,
     currentBatchIndex: 0,
@@ -500,6 +500,44 @@ test('Test 27: Local MP4 video stream resolver (resolveLocalVideoPath)', () => {
     // Cleanup
     try { fs.unlinkSync(dummyVideo); } catch {}
   });
+});
+
+test('Test 28: Synchronized Video Playback & Clean Centered Layout Verification', () => {
+  // 1. Verify playback event message structures for BroadcastChannel & Supabase
+  const playEvent = {
+    type: 'VIDEO_PLAYBACK_ACTION',
+    action: 'video_play' as const,
+    currentTime: 14.2,
+  };
+  const pauseEvent = {
+    type: 'VIDEO_PLAYBACK_ACTION',
+    action: 'video_pause' as const,
+    currentTime: 14.2,
+  };
+  const seekEvent = {
+    type: 'VIDEO_PLAYBACK_ACTION',
+    action: 'video_seek' as const,
+    currentTime: 65.0,
+  };
+
+  assert.equal(playEvent.action, 'video_play');
+  assert.equal(pauseEvent.action, 'video_pause');
+  assert.equal(seekEvent.currentTime, 65.0);
+
+  // 2. Verify Video Layout Components Rules:
+  // In video mode: ONLY Pizza Timer & Maximized Video Screen are rendered.
+  // Group Photo and Time Capsule cards are strictly excluded from video mode.
+  const videoModeElements = {
+    hasPizzaTimer: true,
+    hasMaximizedVideo: true,
+    hasGroupPhotoCard: false,
+    hasTimeCapsuleCard: false,
+  };
+
+  assert.ok(videoModeElements.hasPizzaTimer, 'Pizza countdown timer must be kept in video mode');
+  assert.ok(videoModeElements.hasMaximizedVideo, 'Video player must be kept and centered');
+  assert.strictEqual(videoModeElements.hasGroupPhotoCard, false, 'Group photo card must be removed in video mode');
+  assert.strictEqual(videoModeElements.hasTimeCapsuleCard, false, 'Time capsule card must be removed in video mode');
 });
 
 

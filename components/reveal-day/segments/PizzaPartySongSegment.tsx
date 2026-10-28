@@ -128,6 +128,90 @@ export default function PizzaPartySongSegment({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const displayFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Video Playback Synchronization State & Refs
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const isRemoteVideoActionRef = useRef<boolean>(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+
+  // Broadcast video playback state to Operator & other tabs
+  const broadcastVideoState = useCallback((
+    action: 'video_play' | 'video_pause' | 'video_seek' | 'video_metadata',
+    time?: number,
+    dur?: number
+  ) => {
+    const curTime = typeof time === 'number' ? time : (videoRef.current?.currentTime || 0);
+    const totalDur = typeof dur === 'number' ? dur : (videoRef.current?.duration || videoDuration);
+
+    // 1. Local BroadcastChannel (0ms latency for dual monitor on same PC)
+    try {
+      const bc = new BroadcastChannel('reveal_local_video_channel');
+      bc.postMessage({
+        type: 'VIDEO_PLAYBACK_ACTION',
+        action,
+        currentTime: curTime,
+        duration: totalDur,
+      });
+      bc.close();
+    } catch {}
+
+    // 2. Supabase Channel (network devices)
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: {
+            action,
+            currentTime: curTime,
+            duration: totalDur,
+            mode: 'video',
+          },
+        });
+      }
+    } catch {}
+  }, [eventId, videoDuration]);
+
+  // Apply received video commands from Operator Panel
+  const applyVideoControl = useCallback((action: string, currentTime?: number) => {
+    if (action === 'video_play') {
+      if (videoRef.current) {
+        if (typeof currentTime === 'number' && Math.abs(videoRef.current.currentTime - currentTime) > 1.5) {
+          videoRef.current.currentTime = currentTime;
+        }
+        isRemoteVideoActionRef.current = true;
+        videoRef.current.play().catch(() => {});
+        setIsVideoPlaying(true);
+      } else if (iframeRef.current) {
+        iframeRef.current.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        setIsVideoPlaying(true);
+      }
+    } else if (action === 'video_pause') {
+      if (videoRef.current) {
+        isRemoteVideoActionRef.current = true;
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      } else if (iframeRef.current) {
+        iframeRef.current.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        setIsVideoPlaying(false);
+      }
+    } else if (action === 'video_seek' && typeof currentTime === 'number') {
+      if (videoRef.current) {
+        isRemoteVideoActionRef.current = true;
+        videoRef.current.currentTime = currentTime;
+        setVideoCurrentTime(currentTime);
+      } else if (iframeRef.current) {
+        iframeRef.current.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'seekTo', args: [currentTime, true] }),
+          '*'
+        );
+      }
+    }
+  }, []);
+
   // Initialize saved mode & video URL from LocalStorage and IndexedDB
   useEffect(() => {
     try {
@@ -180,6 +264,9 @@ export default function PizzaPartySongSegment({
         } else if (e.data?.type === 'VIDEO_CLEARED') {
           setVideoUrl('');
           setParsedVideo(parseVideoUrl(''));
+        } else if (e.data?.type === 'VIDEO_PLAYBACK_ACTION') {
+          const { action, currentTime } = e.data;
+          applyVideoControl(action, currentTime);
         }
       };
     } catch {}
@@ -188,7 +275,7 @@ export default function PizzaPartySongSegment({
         bc?.close();
       } catch {}
     };
-  }, []);
+  }, [applyVideoControl]);
 
   const handleDisplayFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -396,6 +483,12 @@ export default function PizzaPartySongSegment({
               audio.currentTime = data.currentTime;
               setCurrentTime(data.currentTime);
             }
+          } else if (
+            data.action === 'video_play' ||
+            data.action === 'video_pause' ||
+            data.action === 'video_seek'
+          ) {
+            applyVideoControl(data.action, data.currentTime);
           }
         })
         .subscribe();
@@ -406,7 +499,7 @@ export default function PizzaPartySongSegment({
         } catch {}
       };
     } catch {}
-  }, [eventId, currentTrackIndex]);
+  }, [eventId, currentTrackIndex, applyVideoControl]);
 
   const handleModeChange = (mode: 'audio' | 'video') => {
     setDisplayMode(mode);
@@ -682,10 +775,280 @@ export default function PizzaPartySongSegment({
         </div>
       )}
 
-      {/* Main Split Content: Left (Pizza & Photo) + Right (Music & Full Lyrics OR Video Player) */}
-      <div className="my-auto flex-1 grid grid-cols-12 gap-5 items-stretch z-10 py-3 min-h-0">
-        {/* Left Side: Pizza Party 50-Min Timer, Group Photo Guide & Cheering Ticker (5 cols, hidden in theaterMode) */}
-        {!theaterMode && (
+      {/* Dual Screen Architecture: Video Mode vs Audio & Lyrics Mode */}
+      {displayMode === 'video' ? (
+        /* ============================================================ */
+        /* 1. VIDEO MODE: Only Pizza Timer + Maximized Centered Video Player */
+        /* (단체 기념 촬영 & 롤링페이퍼 제거, 동영상 영역 중앙 최대 배치) */
+        /* ============================================================ */
+        <div className="flex-1 flex flex-col justify-between gap-3 min-h-0 z-10 py-2">
+          {/* 1. 피자 타임 남은 시간 (Top Horizontal Sleek Banner) */}
+          <div className="shrink-0 px-6 py-3 rounded-2xl bg-slate-900/85 border border-amber-500/35 shadow-xl flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl shadow-inner shadow-amber-500/20 shrink-0">
+                🍕
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                    피자 타임 남은 시간 (Pizza Networking Time)
+                  </span>
+                  {isTimerPaused ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold animate-pulse">
+                      ⏸️ 일시정지
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      실시간 카운트다운 중
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-300 hidden md:block mt-0.5">
+                  준비된 따뜻한 피자와 함께 2달간의 비타민 여정을 나눈 동료들과 자유롭게 이야기를 나누어 보세요!
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3.5">
+              <div className="text-right hidden sm:block">
+                <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">피자 파티 종료까지</div>
+                <div className="text-[11px] text-amber-400/90 font-medium font-mono">50 Min Session</div>
+              </div>
+              <div className="text-4xl md:text-5xl font-black text-amber-300 font-mono tracking-tight drop-shadow-lg px-4 py-1.5 rounded-2xl bg-slate-950/90 border border-amber-500/30">
+                {formatTimer(secondsLeft)}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. 동영상 재생 영역 (화면 중앙 & 최대 크기 배치) */}
+          <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col justify-between gap-2.5 h-full min-h-0 bg-slate-900/80 border border-slate-800 rounded-3xl p-4 md:p-5 shadow-2xl">
+            {/* Video Player Header Bar */}
+            <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center text-white shadow-md shrink-0">
+                  <Film className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">
+                      AI VITAMIN SONG M/V
+                    </span>
+                    <span className="text-xs font-bold text-amber-400 truncate">
+                      {parsedVideo.type === 'youtube'
+                        ? 'YouTube 재생'
+                        : parsedVideo.type === 'local'
+                        ? `💻 로컬 MP4: ${parsedVideo.fileName || '비디오'}`
+                        : parsedVideo.type === 'direct'
+                        ? 'MP4 비디오'
+                        : parsedVideo.type === 'vimeo'
+                        ? 'Vimeo'
+                        : '뮤직비디오'}
+                    </span>
+                  </div>
+                  <h3 className="text-sm md:text-base font-black text-white truncate mt-0.5">
+                    〈다 잘하고 있어〉 Hi-Tech 사업본부 AI Vitamin Song 뮤직비디오
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Realtime Sync Badge */}
+                <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>오퍼레이터 화면 실시간 동기화 중</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowManualInput(prev => !prev)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all border border-slate-700/60"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                  <span>경로/파일 {showManualInput ? '닫기' : '선택'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange('audio')}
+                  className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all flex items-center gap-1"
+                >
+                  <Music className="w-3.5 h-3.5" />
+                  <span>가사 보기</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Input Bar if toggled */}
+            {showManualInput && (
+              <div className="p-3 rounded-2xl bg-slate-950 border border-amber-500/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-lg shrink-0">
+                <input
+                  type="file"
+                  ref={displayFileInputRef}
+                  onChange={handleDisplayFileSelect}
+                  accept="video/mp4,video/quicktime,video/webm,video/*"
+                  className="hidden"
+                />
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={manualVideoInput}
+                    onChange={(e) => setManualVideoInput(e.target.value)}
+                    placeholder="로컬 PC 파일 경로(예: /Users/.../song.mp4, C:\... 또는 파일명) 또는 유튜브 링크"
+                    className="w-full py-1.5 pl-7 pr-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-mono"
+                  />
+                  <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2.5" />
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => displayFileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center gap-1"
+                  >
+                    {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : <Folder className="w-3.5 h-3.5 text-amber-400" />}
+                    <span>{isUploading ? '로딩 중...' : 'PC 파일 찾기'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (manualVideoInput.trim()) {
+                        handleUpdateVideoUrl(manualVideoInput);
+                        setShowManualInput(false);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 flex items-center gap-1 shadow"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>적용</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Video Screen Container - Centered and Maximized */}
+            <div className="flex-1 w-full min-h-[440px] lg:min-h-[540px] rounded-2xl bg-black/95 border border-slate-800/90 overflow-hidden relative flex items-center justify-center shadow-inner">
+              {parsedVideo.isValid ? (
+                parsedVideo.type === 'youtube' || parsedVideo.type === 'vimeo' ? (
+                  <iframe
+                    ref={iframeRef}
+                    src={parsedVideo.embedUrl}
+                    title="AI Vitamin Song Music Video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="w-full h-full border-0 rounded-2xl"
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    src={parsedVideo.embedUrl}
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                    onPlay={() => {
+                      setIsVideoPlaying(true);
+                      if (!isRemoteVideoActionRef.current) {
+                        broadcastVideoState('video_play', videoRef.current?.currentTime);
+                      }
+                      isRemoteVideoActionRef.current = false;
+                    }}
+                    onPause={() => {
+                      setIsVideoPlaying(false);
+                      if (!isRemoteVideoActionRef.current) {
+                        broadcastVideoState('video_pause', videoRef.current?.currentTime);
+                      }
+                      isRemoteVideoActionRef.current = false;
+                    }}
+                    onTimeUpdate={() => {
+                      if (videoRef.current) {
+                        setVideoCurrentTime(videoRef.current.currentTime);
+                      }
+                    }}
+                    onLoadedMetadata={() => {
+                      if (videoRef.current) {
+                        const d = videoRef.current.duration;
+                        setVideoDuration(d);
+                        broadcastVideoState('video_metadata', 0, d);
+                      }
+                    }}
+                    className="w-full h-full object-contain rounded-2xl mx-auto"
+                  />
+                )
+              ) : (
+                /* Standby / Guide when no video link registered */
+                <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                  <input
+                    type="file"
+                    ref={displayFileInputRef}
+                    onChange={handleDisplayFileSelect}
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    className="hidden"
+                  />
+                  <div className="w-16 h-16 rounded-3xl bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3 animate-pulse">
+                    <Film className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-base font-black text-white mb-1">
+                    AI Vitamin Song 뮤직비디오 영상 대기 중
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                    오퍼레이터 화면(/admin/reveal-day)에서 <strong>로컬 PC의 MP4 파일 경로</strong>나 유튜브 주소를 입력하거나, 아래 <strong>[로컬 MP4 파일 선택]</strong> 버튼으로 동영상을 바로 연결할 수 있습니다.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => displayFileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-black text-xs hover:opacity-90 shadow-lg shadow-rose-500/20 transition-all flex items-center gap-1.5"
+                    >
+                      {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Folder className="w-4 h-4" />}
+                      <span>{isUploading ? '로딩 중...' : '로컬 MP4 파일 선택'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualInput(true)}
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <HardDrive className="w-4 h-4 text-sky-400" />
+                      <span>경로 직접 입력</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange('audio')}
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Music className="w-4 h-4 text-sky-400" />
+                      <span>가사 모드로 전환</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Video Bottom Info Footer */}
+            <div className="p-2.5 rounded-2xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs text-slate-400 shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="text-slate-200 font-medium truncate">
+                  하이테크 사업본부 동료들에게 전하는 감사의 헌정곡 & 뮤직비디오
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleModeChange('audio')}
+                className="text-sky-400 hover:text-sky-300 font-bold text-[11px] underline shrink-0"
+              >
+                가사 전체 보기 & 오디오 플레이어로 전환 →
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ============================================================ */
+        /* 2. AUDIO & FORMATTED LYRICS MODE */
+        /* ============================================================ */
+        <div className="my-auto flex-1 grid grid-cols-12 gap-5 items-stretch z-10 py-3 min-h-0">
+          {/* Left Side: Pizza Party 50-Min Timer Card */}
           <div className="col-span-12 lg:col-span-5 flex flex-col justify-between gap-3 h-full">
             {/* 50-min Countdown Timer Card */}
             <div className="p-5 rounded-3xl bg-slate-900/80 border border-amber-500/30 shadow-2xl flex flex-col items-center justify-center text-center relative overflow-hidden">
@@ -715,242 +1078,31 @@ export default function PizzaPartySongSegment({
               </p>
             </div>
 
-            {/* Group Photo Announcement Card */}
-            <div className="p-4 rounded-3xl bg-slate-900/80 border border-indigo-500/30 shadow-xl flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0 text-xl">
-                📸
+            {/* Quick Mode Switch Prompt Card */}
+            <div className="p-4 rounded-3xl bg-slate-900/80 border border-rose-500/30 shadow-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl">
+                  🎬
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">뮤직비디오 영상 감상하기</h4>
+                  <p className="text-[11px] text-slate-300">영상 모드로 전환하면 대화면으로 감상하실 수 있습니다.</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <span>HT 사업본부 전원 단체 기념 촬영</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">Photo</span>
-                </h3>
-                <p className="text-xs text-slate-300 leading-tight mt-0.5">
-                  잠시 후 무대 앞으로 모여 2달간의 비타민 프로그램을 기념하는 단체 사진을 촬영합니다.
-                </p>
-              </div>
-            </div>
-
-            {/* Mobile Direct Link to Time Capsule Card */}
-            <div className="p-4 rounded-3xl bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 border border-sky-400/40 shadow-xl flex items-center justify-between">
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold text-sky-300 tracking-wide">내 폰으로 영구 소장하기</span>
-                <h4 className="text-sm font-black text-white truncate">나의 AI 롤링페이퍼 & 타임캡슐</h4>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  모바일 화면에서 나에게 전달된 칭찬과 카드를 언제든 확인하실 수 있습니다.
-                </p>
-              </div>
-              <Link
-                href="/live"
-                target="_blank"
-                className="px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-black shrink-0 ml-3 transition-all shadow-md shadow-sky-500/20 flex items-center gap-1"
+              <button
+                type="button"
+                onClick={() => handleModeChange('video')}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-black text-xs shadow-md"
               >
-                <span>열기</span>
-                <Share2 className="w-3.5 h-3.5" />
-              </Link>
+                영상 모드
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Right Side: AI Vitamin Song (Video Mode OR Audio/Lyrics Mode) */}
-        <div className={`col-span-12 ${theaterMode ? 'lg:col-span-12' : 'lg:col-span-7'} flex flex-col justify-between gap-3 h-full min-h-0 bg-slate-900/70 border border-slate-800 rounded-3xl p-5 shadow-2xl`}>
-          {displayMode === 'video' ? (
-            /* ============================================================ */
-            /* 1. VIDEO / MUSIC VIDEO MODE */
-            /* ============================================================ */
-            <div className="w-full h-full flex flex-col justify-between gap-3 min-h-0">
-              {/* Video Player Header Bar */}
-              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center text-white shadow-md shrink-0">
-                    <Film className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">
-                        MUSIC VIDEO
-                      </span>
-                      <span className="text-xs font-bold text-amber-400 truncate">
-                        {parsedVideo.type === 'youtube'
-                          ? 'YouTube 재생'
-                          : parsedVideo.type === 'local'
-                          ? `💻 로컬 MP4: ${parsedVideo.fileName || '비디오'}`
-                          : parsedVideo.type === 'direct'
-                          ? 'MP4 비디오'
-                          : parsedVideo.type === 'vimeo'
-                          ? 'Vimeo'
-                          : '뮤직비디오'}
-                      </span>
-                    </div>
-                    <h3 className="text-sm md:text-base font-black text-white truncate mt-0.5">
-                      〈다 잘하고 있어〉 Hi-Tech 사업본부 AI Vitamin Song M/V
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowManualInput(prev => !prev)}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all border border-slate-700/60"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                    <span>경로/링크 {showManualInput ? '닫기' : '입력'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('audio')}
-                    className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all flex items-center gap-1"
-                  >
-                    <Music className="w-3.5 h-3.5" />
-                    <span>가사 보기</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Input Bar if toggled */}
-              {showManualInput && (
-                <div className="p-3 rounded-2xl bg-slate-950 border border-amber-500/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-lg">
-                  <input
-                    type="file"
-                    ref={displayFileInputRef}
-                    onChange={handleDisplayFileSelect}
-                    accept="video/mp4,video/quicktime,video/webm,video/*"
-                    className="hidden"
-                  />
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={manualVideoInput}
-                      onChange={(e) => setManualVideoInput(e.target.value)}
-                      placeholder="로컬 PC 파일 경로(예: /Users/.../song.mp4, C:\... 또는 파일명) 또는 유튜브 링크"
-                      className="w-full py-1.5 pl-7 pr-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-mono"
-                    />
-                    <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2.5" />
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => displayFileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center gap-1"
-                    >
-                      {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : <Folder className="w-3.5 h-3.5 text-amber-400" />}
-                      <span>{isUploading ? '로딩 중...' : 'PC 파일 찾기'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (manualVideoInput.trim()) {
-                          handleUpdateVideoUrl(manualVideoInput);
-                          setShowManualInput(false);
-                        }
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 flex items-center gap-1 shadow"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>적용</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Video Screen Container */}
-              <div className="flex-1 min-h-[340px] rounded-2xl bg-black/95 border border-slate-800/80 overflow-hidden relative flex items-center justify-center shadow-inner">
-                {parsedVideo.isValid ? (
-                  parsedVideo.type === 'youtube' || parsedVideo.type === 'vimeo' ? (
-                    <iframe
-                      src={parsedVideo.embedUrl}
-                      title="AI Vitamin Song Music Video"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                      className="w-full h-full border-0 rounded-2xl"
-                    />
-                  ) : (
-                    <video
-                      src={parsedVideo.embedUrl}
-                      controls
-                      autoPlay
-                      loop
-                      playsInline
-                      className="w-full h-full object-contain rounded-2xl"
-                    />
-                  )
-                ) : (
-                  /* Standby / Guide when no video link registered */
-                  <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-                    <input
-                      type="file"
-                      ref={displayFileInputRef}
-                      onChange={handleDisplayFileSelect}
-                      accept="video/mp4,video/quicktime,video/webm,video/*"
-                      className="hidden"
-                    />
-                    <div className="w-16 h-16 rounded-3xl bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3 animate-pulse">
-                      <Film className="w-8 h-8" />
-                    </div>
-                    <h4 className="text-base font-black text-white mb-1">
-                      AI Vitamin Song 뮤직비디오 영상 대기 중
-                    </h4>
-                    <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                      오퍼레이터 화면(/admin/reveal-day)에서 <strong>로컬 PC의 MP4 파일 경로</strong>나 유튜브 주소를 입력하거나, 아래 <strong>[로컬 MP4 파일 선택]</strong> 버튼으로 동영상을 바로 연결할 수 있습니다.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => displayFileInputRef.current?.click()}
-                        disabled={isUploading}
-                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-black text-xs hover:opacity-90 shadow-lg shadow-rose-500/20 transition-all flex items-center gap-1.5"
-                      >
-                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Folder className="w-4 h-4" />}
-                        <span>{isUploading ? '로딩 중...' : '로컬 MP4 파일 선택'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowManualInput(true)}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
-                      >
-                        <HardDrive className="w-4 h-4 text-sky-400" />
-                        <span>경로 직접 입력</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleModeChange('audio')}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center gap-1.5"
-                      >
-                        <Music className="w-4 h-4 text-sky-400" />
-                        <span>가사 모드로 전환</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Video Bottom Info Footer */}
-              <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span className="text-slate-200 font-medium truncate">
-                    하이테크 사업본부 동료들에게 전하는 감사의 영상과 헌정곡
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleModeChange('audio')}
-                  className="text-sky-400 hover:text-sky-300 font-bold text-[11px] underline shrink-0"
-                >
-                  가사 전체 보기 & 오디오 플레이어로 전환 →
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* ============================================================ */
-            /* 2. AUDIO & FORMATTED LYRICS MODE */
-            /* ============================================================ */
-            <>
-              {/* Audio Player Controller Bar */}
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-2.5 shrink-0">
+          {/* Right Side: AI Vitamin Song Audio & Full Lyrics Board */}
+          <div className="col-span-12 lg:col-span-7 flex flex-col justify-between gap-3 h-full min-h-0 bg-slate-900/70 border border-slate-800 rounded-3xl p-5 shadow-2xl">
+            {/* Audio Player Controller Bar */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-2.5 shrink-0">
                 {/* Track Info & Current Status */}
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
@@ -1131,10 +1283,9 @@ export default function PizzaPartySongSegment({
                   })}
                 </div>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
+    );
+  }

@@ -91,7 +91,7 @@ export default function MateRevealSegment({
         </div>
         <div className="flex items-center gap-3">
           <div className="px-3.5 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-xs font-bold text-indigo-300">
-            진행 그룹 {currentBatchIndex + 1} / 6
+            진행 그룹 {currentBatchIndex + 1} / {pairs.length > 0 ? Math.max(...pairs.map(p => p.batchIndex)) + 1 : 7}
           </div>
           <div className="px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
             공개 현황: <span className="text-sky-400 font-bold">{currentRevealIndex}</span> / {pairs.length}건
@@ -127,97 +127,129 @@ export default function MateRevealSegment({
                   {getUserTitle(info.targetName)}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 2명의 비타민은?</p>
+              <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 {info.observers.length > 0 ? `${info.observers.length}명의 ` : ''}비타민</p>
             </div>
 
-            {/* Two Observers Cards */}
-            <div className="flex flex-col gap-3 my-4">
-              {info.observers.map((observer, obsIdx) => {
-                const isRevealed = observer.isRevealed;
+            {/* Observers Cards */}
+            {info.observers.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-slate-800/20 border border-dashed border-slate-700/50 text-center my-4 flex flex-col items-center justify-center">
+                <Sparkles className="w-5 h-5 text-sky-400/60 mb-2" />
+                <span className="text-xs text-slate-300 font-bold">전체 비타민 파트너</span>
+                <span className="text-[10px] text-slate-500 mt-1">자유 칭찬 및 타임캡슐 연결 완료</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 my-4">
+                {info.observers.map((observer, obsIdx) => {
+                  const isRevealed = observer.isRevealed;
 
-                return (
-                  <div
-                    key={observer.id}
-                    className={`p-3.5 rounded-2xl transition-all duration-500 border ${
-                      isRevealed
-                        ? 'bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 border-sky-400/50 shadow-lg shadow-sky-500/10'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400">
-                        시크릿 메이트 #{obsIdx + 1}
-                      </span>
-                      {isRevealed ? (
-                        <div className="flex items-center gap-1.5">
-                          {observer.isGuessedCorrectly && (
-                            <span className="flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 rounded-full animate-pulse shadow-sm">
-                              <span>🎯</span>
-                              <span>추측 적중!</span>
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                            <UserCheck className="w-3 h-3" />
-                            <span>공개 완료</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                          <Lock className="w-3 h-3" />
-                          <span>비공개</span>
+                  return (
+                    <div
+                      key={observer.id}
+                      className={`p-3.5 rounded-2xl transition-all duration-500 border ${
+                        isRevealed
+                          ? 'bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-500/20 border-sky-400/50 shadow-lg shadow-sky-500/10'
+                          : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400">
+                          시크릿 메이트 #{obsIdx + 1}
                         </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all ${
-                          isRevealed
-                            ? 'bg-gradient-to-tr from-sky-400 to-indigo-600 text-white shadow-md'
-                            : 'bg-slate-700/60 text-slate-400'
-                        }`}
-                      >
-                        {isRevealed ? '✨' : '?'}
-                      </div>
-                      <div className="flex-1 min-w-0">
                         {isRevealed ? (
-                          <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                          >
-                            <div className="text-base font-black text-white flex items-center gap-1.5">
-                              <span>{observer.observerName}</span>
-                              <span className="text-[11px] font-bold text-amber-300 bg-amber-950/70 border border-amber-400/30 px-1.5 py-0.2 rounded-md">
-                                {getUserTitle(observer.observerName)}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-sky-300 font-medium">
-                              {observer.observerTeam}
-                            </div>
+                          <div className="flex items-center gap-1.5">
                             {observer.isGuessedCorrectly && (
-                              <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 px-1.5 py-0.5 rounded-md">
+                              <span className="flex items-center gap-1 text-[9px] font-black text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 rounded-full animate-pulse shadow-sm">
                                 <span>🎯</span>
-                                <span>메이트 맞추기 성공! (추측 적중)</span>
-                              </div>
+                                <span>추측 적중!</span>
+                              </span>
                             )}
-                          </motion.div>
-                        ) : (
-                          <div>
-                            <div className="text-sm font-bold text-slate-400 tracking-wider">
-                              ??? 님
-                            </div>
-                            <div className="text-[11px] text-slate-600">
-                              비공개 메이트
-                            </div>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                              <UserCheck className="w-3 h-3" />
+                              <span>공개 완료</span>
+                            </span>
                           </div>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                            <Lock className="w-3 h-3" />
+                            <span>비공개</span>
+                          </span>
                         )}
                       </div>
+
+                      <div className="mt-2 flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all ${
+                            isRevealed
+                              ? 'bg-gradient-to-tr from-sky-400 to-indigo-600 text-white shadow-md'
+                              : 'bg-slate-700/60 text-slate-400'
+                          }`}
+                        >
+                          {isRevealed ? '✨' : '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {isRevealed ? (
+                            <motion.div
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.4 }}
+                            >
+                              <div className="text-base font-black text-white flex items-center gap-1.5">
+                                <span>{observer.observerName}</span>
+                                <span className="text-[11px] font-bold text-amber-300 bg-amber-950/70 border border-amber-400/30 px-1.5 py-0.2 rounded-md">
+                                  {getUserTitle(observer.observerName)}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-sky-300 font-medium">
+                                {observer.observerTeam}
+                              </div>
+                              {observer.isGuessedCorrectly && (
+                                <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 px-1.5 py-0.5 rounded-md">
+                                  <span>🎯</span>
+                                  <span>메이트 맞추기 성공! (추측 적중)</span>
+                                </div>
+                              )}
+                            </motion.div>
+                          ) : (
+                            <div>
+                              <div className="text-sm font-bold text-slate-400 tracking-wider">
+                                ??? 님
+                              </div>
+                              <div className="text-[11px] text-slate-600">
+                                비공개 메이트
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Revealed Message from Secret Mate */}
+                      {isRevealed && observer.praiseMessage && (
+                        <div className="mt-2.5 p-2 rounded-xl bg-slate-900/90 border border-amber-400/30 text-xs">
+                          <div className="flex items-center gap-1 text-[10px] text-amber-300 font-bold mb-0.5">
+                            <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
+                            <span>메이트가 전한 칭찬</span>
+                          </div>
+                          <p className="italic text-[11px] text-slate-200 line-clamp-3 leading-snug">
+                            &ldquo;{observer.praiseMessage}&rdquo;
+                          </p>
+                        </div>
+                      )}
+                      {isRevealed && observer.noteMessage && !observer.praiseMessage && (
+                        <div className="mt-2.5 p-2 rounded-xl bg-slate-900/90 border border-sky-400/30 text-xs">
+                          <div className="flex items-center gap-1 text-[10px] text-sky-300 font-bold mb-0.5">
+                            <Sparkles className="w-3 h-3 text-sky-400" />
+                            <span>메이트의 관찰 메모</span>
+                          </div>
+                          <p className="italic text-[11px] text-slate-200 line-clamp-3 leading-snug">
+                            &ldquo;{observer.noteMessage}&rdquo;
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Target Card Footer */}
             <div className="pt-2 text-center text-[10px] text-slate-500">

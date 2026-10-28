@@ -123,11 +123,57 @@ function getFallbackCapsule(recipientName: string) {
   return VARIANTS[charCodeSum % VARIANTS.length];
 }
 
-export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; analysis: string; keywords: string[] }> {
-  const fallback = getFallbackCapsule(recipientName);
+const KEYWORD_PATTERNS = [
+  { kw: '따뜻한배려', rx: /배려|친절|챙겨|따뜻|감사|미소|마음|다정|센스/ },
+  { kw: '책임감', rx: /책임|묵묵|끝까지|성실|완수|든든|믿음/ },
+  { kw: '협업시너지', rx: /협업|함께|소통|지원|팀|시너지|화이팅|응원|단합/ },
+  { kw: '탁월한전문성', rx: /전문|능력|기술|역량|전문가|로봇|AI|개발|사업|통찰/ },
+  { kw: '긍정에너지', rx: /긍정|활력|웃음|밝은|비타민|분위기|에너지|유쾌|씩씩/ },
+  { kw: '문제해결', rx: /해결|돌파|추진|대응|침착|명쾌/ },
+  { kw: '솔선수범', rx: /앞장|솔선|헌신|노력|모범|궂은일/ },
+  { kw: '신뢰와안심', rx: /신뢰|안심|의지|최고/ }
+];
 
+function synthesizeCapsuleFromFeedback(recipientName: string, praises: string[]): { letter: string; analysis: string; keywords: string[] } {
   if (praises.length === 0) {
-    return fallback;
+    return getFallbackCapsule(recipientName);
+  }
+
+  const combined = praises.join(' ');
+  const matched = KEYWORD_PATTERNS
+    .map(p => {
+      const count = (combined.match(new RegExp(p.rx, 'g')) || []).length;
+      return { kw: p.kw, count };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  const selectedKeywords = matched.filter(m => m.count > 0).map(m => m.kw);
+  const defaults = ['따뜻한배려', '책임감', '협업시너지', '탁월한전문성', '긍정에너지'];
+  defaults.forEach(d => {
+    if (!selectedKeywords.includes(d)) selectedKeywords.push(d);
+  });
+  const keywords = selectedKeywords.slice(0, 5);
+
+  // Pick the most balanced, meaningful quote (around 30-70 characters)
+  const sortedQuotes = [...praises].sort((a, b) => {
+    const aClean = a.replace(/\[[^\]]+\]/g, '').trim();
+    const bClean = b.replace(/\[[^\]]+\]/g, '').trim();
+    const aScore = Math.abs(50 - aClean.length);
+    const bScore = Math.abs(50 - bClean.length);
+    return aScore - bScore;
+  });
+  const bestQuote = (sortedQuotes[0] || praises[0]).replace(/\[[^\]]+\]/g, '').replace(/\n+/g, ' ').trim();
+
+  const analysis = `동료들은 총 ${praises.length}건의 메시지를 통해 ${recipientName}님을 ${keywords.slice(0, 3).join(', ')}의 태도로 팀에 든든한 신뢰와 활력을 불어넣는 소중한 비타민으로 기억했습니다.`;
+
+  const letter = `지난 두 달간 동료들이 ${recipientName}님께 남겨준 진심 어린 메시지들이 모였습니다.\n"${bestQuote}"\n언제나 보여주신 따뜻한 열정과 헌신에 깊이 감사드리며, 앞으로도 함께 빛날 모든 걸음을 진심으로 응원합니다.\n\n- AI Vitamin -`;
+
+  return { keywords, analysis, letter };
+}
+
+export async function fetchAITimeCapsule(recipientName: string, praises: string[]): Promise<{ letter: string; analysis: string; keywords: string[] }> {
+  if (praises.length === 0) {
+    return getFallbackCapsule(recipientName);
   }
 
   if (openai) {
@@ -163,16 +209,16 @@ JSON 포맷으로만 반환해줘:
       if (content) {
         const parsed = JSON.parse(content);
         return {
-          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : fallback.keywords,
-          analysis: parsed.analysis || fallback.analysis,
-          letter: parsed.letter || fallback.letter
+          keywords: Array.isArray(parsed.keywords) && parsed.keywords.length >= 3 ? parsed.keywords : synthesizeCapsuleFromFeedback(recipientName, praises).keywords,
+          analysis: parsed.analysis || synthesizeCapsuleFromFeedback(recipientName, praises).analysis,
+          letter: parsed.letter || synthesizeCapsuleFromFeedback(recipientName, praises).letter
         };
       }
     } catch (e) {
-      console.warn('OpenAI API call failed for time capsule, using fallback:', e);
+      console.warn('OpenAI API call failed for time capsule, using data synthesis fallback:', e);
     }
   }
 
-  // High quality fallback letter generation
-  return fallback;
+  // Data-grounded synthesis fallback from actual praises and notes
+  return synthesizeCapsuleFromFeedback(recipientName, praises);
 }

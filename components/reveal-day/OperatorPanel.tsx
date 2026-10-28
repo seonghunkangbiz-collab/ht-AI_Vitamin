@@ -107,6 +107,111 @@ export default function OperatorPanel({
   const [isSongPlaying, setIsSongPlaying] = useState<boolean>(false);
   const [showLyricsPreview, setShowLyricsPreview] = useState<boolean>(false);
 
+  // Video Playback Synchronization State for Operator
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const operatorVideoRef = React.useRef<HTMLVideoElement | null>(null);
+  const isOperatorRemoteActionRef = React.useRef<boolean>(false);
+
+  const formatAudioTime = (sec: number) => {
+    if (isNaN(sec)) return '00:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Realtime BroadcastChannel listener for video synchronization
+  React.useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('reveal_local_video_channel');
+      bc.onmessage = async (e) => {
+        if (e.data?.type === 'VIDEO_UPDATED') {
+          const localData = await getLocalVideoFromDB();
+          if (localData?.blobUrl) {
+            setVideoUrl(localData.blobUrl);
+            setInputVideoUrl(localData.name);
+            setSongMode('video');
+          }
+        } else if (e.data?.type === 'VIDEO_CLEARED') {
+          setVideoUrl('');
+          setInputVideoUrl('');
+        } else if (e.data?.type === 'VIDEO_PLAYBACK_ACTION') {
+          const { action, currentTime, duration } = e.data;
+          if (action === 'video_play') {
+            setIsVideoPlaying(true);
+            if (operatorVideoRef.current && operatorVideoRef.current.paused) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.play().catch(() => {});
+            }
+          } else if (action === 'video_pause') {
+            setIsVideoPlaying(false);
+            if (operatorVideoRef.current && !operatorVideoRef.current.paused) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.pause();
+            }
+          } else if (action === 'video_seek' && typeof currentTime === 'number') {
+            setVideoCurrentTime(currentTime);
+            if (operatorVideoRef.current) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.currentTime = currentTime;
+            }
+          } else if (action === 'video_metadata' && typeof duration === 'number') {
+            setVideoDuration(duration);
+          }
+        }
+      };
+    } catch {}
+
+    return () => {
+      try {
+        bc?.close();
+      } catch {}
+    };
+  }, []);
+
+  // Supabase Broadcast subscriber for remote video synchronization
+  React.useEffect(() => {
+    try {
+      if (!isSupabaseConfigured()) return;
+      const sb = getSupabaseClient();
+      const channel = sb
+        .channel(`reveal_channel_${publicState.eventId}`)
+        .on('broadcast', { event: 'song_control' }, (payload) => {
+          const data = payload?.payload || payload;
+          if (data.action === 'video_play') {
+            setIsVideoPlaying(true);
+            if (operatorVideoRef.current && operatorVideoRef.current.paused) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.play().catch(() => {});
+            }
+          } else if (data.action === 'video_pause') {
+            setIsVideoPlaying(false);
+            if (operatorVideoRef.current && !operatorVideoRef.current.paused) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.pause();
+            }
+          } else if (data.action === 'video_seek' && typeof data.currentTime === 'number') {
+            setVideoCurrentTime(data.currentTime);
+            if (operatorVideoRef.current) {
+              isOperatorRemoteActionRef.current = true;
+              operatorVideoRef.current.currentTime = data.currentTime;
+            }
+          } else if (data.action === 'video_metadata' && typeof data.duration === 'number') {
+            setVideoDuration(data.duration);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        try {
+          sb.removeChannel(channel);
+        } catch {}
+      };
+    } catch {}
+  }, [publicState.eventId]);
+
   // Sync saved mode and video URL on mount
   React.useEffect(() => {
     try {
@@ -233,6 +338,54 @@ export default function OperatorPanel({
             trackIndex: trackIndex ?? songTrackIndex,
             shouldPlay: action === 'play' || action === 'change_track'
           }
+        });
+      }
+    } catch {}
+  };
+
+  const sendVideoAction = (action: 'video_play' | 'video_pause' | 'video_seek', time?: number) => {
+    const targetTime = typeof time === 'number' ? time : videoCurrentTime;
+
+    if (action === 'video_play') {
+      setIsVideoPlaying(true);
+      if (operatorVideoRef.current && operatorVideoRef.current.paused) {
+        operatorVideoRef.current.play().catch(() => {});
+      }
+    } else if (action === 'video_pause') {
+      setIsVideoPlaying(false);
+      if (operatorVideoRef.current && !operatorVideoRef.current.paused) {
+        operatorVideoRef.current.pause();
+      }
+    } else if (action === 'video_seek' && typeof time === 'number') {
+      setVideoCurrentTime(time);
+      if (operatorVideoRef.current) {
+        operatorVideoRef.current.currentTime = time;
+      }
+    }
+
+    // 1. BroadcastChannel (0ms latency for dual monitor on same PC)
+    try {
+      const bc = new BroadcastChannel('reveal_local_video_channel');
+      bc.postMessage({
+        type: 'VIDEO_PLAYBACK_ACTION',
+        action,
+        currentTime: targetTime,
+      });
+      bc.close();
+    } catch {}
+
+    // 2. Supabase broadcast (remote devices)
+    try {
+      if (isSupabaseConfigured()) {
+        const sb = getSupabaseClient();
+        sb.channel(`reveal_channel_${publicState.eventId}`).send({
+          type: 'broadcast',
+          event: 'song_control',
+          payload: {
+            action,
+            currentTime: targetTime,
+            mode: 'video',
+          },
         });
       }
     } catch {}
@@ -833,65 +986,184 @@ export default function OperatorPanel({
 
                   {/* Quick video status pill */}
                   {videoUrl ? (
-                    <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-slate-300 min-w-0 flex-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
-                          parseVideoUrl(videoUrl).type === 'local'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : parseVideoUrl(videoUrl).type === 'youtube'
-                            ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                            : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                        }`}>
-                          {parseVideoUrl(videoUrl).type === 'local'
-                            ? '💻 로컬 MP4 파일'
-                            : parseVideoUrl(videoUrl).type === 'youtube'
-                            ? '🔴 YouTube'
-                            : '🌐 웹 비디오'}
-                        </span>
-                        <span className="font-mono text-slate-200 truncate text-[11px]" title={videoUrl}>
-                          {parseVideoUrl(videoUrl).fileName || videoUrl}
-                        </span>
+                    <>
+                      <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-slate-300 min-w-0 flex-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                            parseVideoUrl(videoUrl).type === 'local'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : parseVideoUrl(videoUrl).type === 'youtube'
+                              ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                              : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                          }`}>
+                            {parseVideoUrl(videoUrl).type === 'local'
+                              ? '💻 로컬 MP4 파일'
+                              : parseVideoUrl(videoUrl).type === 'youtube'
+                              ? '🔴 YouTube'
+                              : '🌐 웹 비디오'}
+                          </span>
+                          <span className="font-mono text-slate-200 truncate text-[11px]" title={videoUrl}>
+                            {parseVideoUrl(videoUrl).fileName || videoUrl}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => sendBroadcastVideoUrl(videoUrl)}
+                            className="text-sky-400 hover:text-sky-300 font-bold text-[11px]"
+                          >
+                            재송출
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVideoUrl('');
+                              setInputVideoUrl('');
+                              clearLocalVideoFromDB();
+                              try {
+                                localStorage.removeItem('reveal_day_video_url');
+                                localStorage.removeItem('reveal_day_local_filename');
+                                const bc = new BroadcastChannel('reveal_local_video_channel');
+                                bc.postMessage({ type: 'VIDEO_CLEARED' });
+                                bc.close();
+                              } catch {}
+                              try {
+                                if (isSupabaseConfigured()) {
+                                  getSupabaseClient()
+                                    .channel(`reveal_channel_${publicState.eventId}`)
+                                    .send({
+                                      type: 'broadcast',
+                                      event: 'song_control',
+                                      payload: { action: 'set_video_url', videoUrl: '', mode: 'video' },
+                                    });
+                                }
+                              } catch {}
+                            }}
+                            className="text-slate-500 hover:text-rose-400 font-bold text-[10px]"
+                          >
+                            초기화
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={() => sendBroadcastVideoUrl(videoUrl)}
-                          className="text-sky-400 hover:text-sky-300 font-bold text-[11px]"
-                        >
-                          재송출
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVideoUrl('');
-                            setInputVideoUrl('');
-                            clearLocalVideoFromDB();
-                            try {
-                              localStorage.removeItem('reveal_day_video_url');
-                              localStorage.removeItem('reveal_day_local_filename');
-                              const bc = new BroadcastChannel('reveal_local_video_channel');
-                              bc.postMessage({ type: 'VIDEO_CLEARED' });
-                              bc.close();
-                            } catch {}
-                            try {
-                              if (isSupabaseConfigured()) {
-                                getSupabaseClient()
-                                  .channel(`reveal_channel_${publicState.eventId}`)
-                                  .send({
-                                    type: 'broadcast',
-                                    event: 'song_control',
-                                    payload: { action: 'set_video_url', videoUrl: '', mode: 'video' },
-                                  });
-                              }
-                            } catch {}
-                          }}
-                          className="text-slate-500 hover:text-rose-400 font-bold text-[10px]"
-                        >
-                          초기화
-                        </button>
+
+                      {/* Realtime Synchronized Video Playback Control Console */}
+                      <div className="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-col gap-2.5 shadow-lg">
+                        {/* Status Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                              <Film className="w-3.5 h-3.5 text-amber-400" />
+                              <span>빔 화면과 1:1 실시간 동시 동작</span>
+                            </span>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                            isVideoPlaying
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          }`}>
+                            {isVideoPlaying ? '🟢 빔 송출 재생 중' : '⏸️ 빔 송출 일시정지 중'}
+                          </span>
+                        </div>
+
+                        {/* Video Player & Time Progress */}
+                        <div className="flex flex-col gap-2">
+                          {/* Silent Operator Video Monitor (local MP4 only) */}
+                          {parseVideoUrl(videoUrl).type !== 'youtube' && parseVideoUrl(videoUrl).type !== 'vimeo' && (
+                            <div className="relative w-full aspect-video max-h-40 rounded-xl overflow-hidden bg-black border border-slate-800 flex items-center justify-center">
+                              <video
+                                ref={operatorVideoRef}
+                                src={videoUrl}
+                                muted
+                                playsInline
+                                className="w-full h-full object-contain"
+                                onTimeUpdate={() => {
+                                  if (operatorVideoRef.current) {
+                                    setVideoCurrentTime(operatorVideoRef.current.currentTime);
+                                  }
+                                }}
+                                onLoadedMetadata={() => {
+                                  if (operatorVideoRef.current) {
+                                    setVideoDuration(operatorVideoRef.current.duration);
+                                  }
+                                }}
+                              />
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 text-slate-300 text-[9px] font-mono border border-slate-700 pointer-events-none flex items-center gap-1">
+                                <span>🖥️ 오퍼레이터 모니터 (무음)</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Progress Slider and Time */}
+                          <div className="flex items-center gap-2.5 text-xs">
+                            <span className="font-mono text-amber-400 font-bold text-[11px] w-12 text-right">
+                              {formatAudioTime(videoCurrentTime)}
+                            </span>
+                            <input
+                              type="range"
+                              min={0}
+                              max={videoDuration || 100}
+                              step={0.5}
+                              value={videoCurrentTime}
+                              onChange={(e) => {
+                                const newTime = parseFloat(e.target.value);
+                                setVideoCurrentTime(newTime);
+                                sendVideoAction('video_seek', newTime);
+                              }}
+                              className="flex-1 h-2 rounded-lg bg-slate-800 accent-amber-400 cursor-pointer"
+                            />
+                            <span className="font-mono text-slate-400 text-[11px] w-12">
+                              {formatAudioTime(videoDuration)}
+                            </span>
+                          </div>
+
+                          {/* Big Simultaneous Play/Pause & Seek Action Buttons */}
+                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800/80">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isVideoPlaying) {
+                                  sendVideoAction('video_pause');
+                                } else {
+                                  sendVideoAction('video_play');
+                                }
+                              }}
+                              className={`col-span-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md ${
+                                isVideoPlaying
+                                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
+                                  : 'bg-gradient-to-r from-emerald-500 to-sky-500 hover:opacity-90 text-white shadow-emerald-500/20'
+                              }`}
+                            >
+                              {isVideoPlaying ? (
+                                <>
+                                  <Pause className="w-4 h-4 fill-current" />
+                                  <span>동영상 일시정지 (빔 화면 동시)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                                  <span>동영상 재생하기 (빔 화면 동시)</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sendVideoAction('video_seek', 0);
+                                sendVideoAction('video_play', 0);
+                              }}
+                              className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                              title="처음(00:00)부터 다시 재생"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                              <span>처음부터</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <div className="text-[10px] text-slate-400 space-y-0.5">
                       <div>* <strong>로컬 파일</strong>: PC 내 MP4 경로(예: <code className="text-amber-300">/Users/a09721/Downloads/song.mp4</code> 또는 <code className="text-amber-300">C:\...</code>)를 입력하거나 <strong>[PC 파일 찾기]</strong> 버튼을 누르면 즉시 연결됩니다.</div>

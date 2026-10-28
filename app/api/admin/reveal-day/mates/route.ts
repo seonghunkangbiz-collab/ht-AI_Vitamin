@@ -31,16 +31,31 @@ async function getEventMatePairs(eventId: string): Promise<MatePairReveal[]> {
     .select('id, user_id, target_user_id, assigned_at')
     .order('assigned_at', { ascending: true });
 
+  const { data: praises } = await supabase
+    .from('praise_messages')
+    .select('sender_user_id, recipient_user_id, content, refined_content')
+    .order('created_at', { ascending: false });
+
+  const { data: notes } = await supabase
+    .from('private_note_history')
+    .select('user_id, target_user_id, content, change_type')
+    .order('created_at', { ascending: false });
+
+  const activeNotes = (notes || []).filter(n => n.change_type !== 'delete' && n.content?.trim());
+
   const pairs: MatePairReveal[] = [];
   let pairIdx = 0;
 
   // Group by target user to maintain clean batches
   activeUsers.forEach((target, targetIdx) => {
     const targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
-    const batchIndex = Math.floor(targetIdx / 4); // 6 batches of 4 targets each
+    const batchIndex = Math.floor(targetIdx / 4); // Batches of 4 targets each
 
     targetAssignments.forEach(a => {
       const observer = userMap.get(a.user_id);
+      const matchedPraise = (praises || []).find(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
+      const matchedNote = activeNotes.find(n => n.user_id === a.user_id && n.target_user_id === target.id);
+
       pairs.push({
         id: a.id,
         batchIndex,
@@ -50,6 +65,8 @@ async function getEventMatePairs(eventId: string): Promise<MatePairReveal[]> {
         targetId: target.id,
         targetName: target.name,
         targetTeam: target.team,
+        praiseMessage: matchedPraise?.refined_content || matchedPraise?.content || '',
+        noteMessage: matchedNote?.content || '',
         isRevealed: false
       });
       pairIdx++;

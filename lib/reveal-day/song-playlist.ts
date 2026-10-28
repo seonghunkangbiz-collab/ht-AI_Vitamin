@@ -300,7 +300,7 @@ export function parseVideoUrl(inputUrl?: string): ParsedVideoInfo {
     const videoId = ytMatch[1];
     return {
       type: 'youtube',
-      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`,
+      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&playsinline=1&modestbranding=1`,
       originalUrl: trimmed,
       isValid: true
     };

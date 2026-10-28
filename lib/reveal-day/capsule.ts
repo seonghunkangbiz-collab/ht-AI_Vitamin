@@ -19,26 +19,40 @@ export async function pregenerateAllTimeCapsules(adminId: string): Promise<{ gen
 
   const activeUsers = (users || []).filter(u => u.role !== 'admin');
 
-  // 2. Fetch Praises up to Cutoff
+  // 2. Fetch Praises (incorporating all praises entered up to current Reveal Day)
   const { data: praises, error: praiseErr } = await supabase
     .from('praise_messages')
     .select('recipient_user_id, content, refined_content, created_at')
-    .lte('created_at', cutoffDate.toISOString());
+    .order('created_at', { ascending: true });
   if (praiseErr) throw new Error(`Failed to fetch praises: ${praiseErr.message}`);
 
-  const praiseMap = new Map<string, string[]>();
+  // 3. Fetch Observation Notes from private_note_history
+  const { data: notes } = await supabase
+    .from('private_note_history')
+    .select('target_user_id, content, change_type')
+    .order('created_at', { ascending: true });
+
+  const activeNotes = (notes || []).filter(n => n.change_type !== 'delete' && n.content?.trim());
+
+  const feedbackMap = new Map<string, string[]>();
   (praises || []).forEach(p => {
-    const list = praiseMap.get(p.recipient_user_id) || [];
+    const list = feedbackMap.get(p.recipient_user_id) || [];
     list.push(p.refined_content || p.content);
-    praiseMap.set(p.recipient_user_id, list);
+    feedbackMap.set(p.recipient_user_id, list);
+  });
+
+  activeNotes.forEach(n => {
+    const list = feedbackMap.get(n.target_user_id) || [];
+    list.push(`[동료의 시선과 메모] ${n.content}`);
+    feedbackMap.set(n.target_user_id, list);
   });
 
   let generatedCount = 0;
   let updatedCount = 0;
 
   for (const user of activeUsers) {
-    const userPraises = praiseMap.get(user.id) || [];
-    const hashSource = JSON.stringify({ userId: user.id, praises: userPraises });
+    const userFeedbacks = feedbackMap.get(user.id) || [];
+    const hashSource = JSON.stringify({ userId: user.id, feedbacks: userFeedbacks });
     const sourceHash = crypto.createHash('sha256').update(hashSource).digest('hex');
 
     // Check existing capsule
@@ -48,12 +62,12 @@ export async function pregenerateAllTimeCapsules(adminId: string): Promise<{ gen
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (existing && existing.source_hash === sourceHash) {
+    if (existing && existing.source_hash === sourceHash && existing.approval_status === 'approved') {
       continue; // Up to date
     }
 
-    // Generate capsule
-    const result = await fetchAITimeCapsule(user.name, userPraises);
+    // Generate capsule grounded in actual praises & observation notes
+    const result = await fetchAITimeCapsule(user.name, userFeedbacks);
     const now = new Date().toISOString();
 
     const capsuleId = existing?.id || `cap-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;

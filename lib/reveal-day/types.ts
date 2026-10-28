@@ -160,6 +160,8 @@ export interface MatePairReveal {
   revealedAt?: string;
   isGuessedCorrectly?: boolean;
   isTargetCheckedIn?: boolean;
+  praiseMessage?: string;
+  noteMessage?: string;
 }
 
 export interface PreflightItem {

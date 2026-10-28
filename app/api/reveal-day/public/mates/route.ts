@@ -44,12 +44,29 @@ export async function GET(request: Request) {
         .select('id, user_id, target_user_id, assigned_at')
         .order('assigned_at', { ascending: true });
 
+      // Fetch praise messages to correlate with mate pairs
+      const { data: praises } = await supabase
+        .from('praise_messages')
+        .select('sender_user_id, recipient_user_id, content, refined_content')
+        .order('created_at', { ascending: false });
+
+      // Fetch observation notes to correlate with mate pairs
+      const { data: notes } = await supabase
+        .from('private_note_history')
+        .select('user_id, target_user_id, content, change_type')
+        .order('created_at', { ascending: false });
+
+      const activeNotes = (notes || []).filter(n => n.change_type !== 'delete' && n.content?.trim());
+
       activeUsers.forEach((target, targetIdx) => {
         const targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
         const batchIndex = Math.floor(targetIdx / 4);
 
         targetAssignments.forEach(a => {
           const observer = userMap.get(a.user_id);
+          const matchedPraise = (praises || []).find(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
+          const matchedNote = activeNotes.find(n => n.user_id === a.user_id && n.target_user_id === target.id);
+
           allPairs.push({
             id: a.id,
             batchIndex,
@@ -58,7 +75,9 @@ export async function GET(request: Request) {
             observerTeam: observer?.team || '',
             targetId: target.id,
             targetName: target.name,
-            targetTeam: target.team
+            targetTeam: target.team,
+            praiseMessage: matchedPraise?.refined_content || matchedPraise?.content || '',
+            noteMessage: matchedNote?.content || ''
           });
         });
       });
@@ -87,7 +106,7 @@ export async function GET(request: Request) {
     const checkinSet = new Set((checkinRows || []).map(c => c.user_id));
 
     // STRICT ZERO-LEAKAGE RULE:
-    // Only revealed pairs (index < currentRevealIndex) reveal observer name/team/id.
+    // Only revealed pairs (index < currentRevealIndex) reveal observer name/team/id and their praise message.
     // Unrevealed pairs provide target info (for card layout) with strictly masked observer data.
     const safePairs = allPairs.map((p, idx) => {
       const isRevealed = idx < currentRevealIndex;
@@ -112,6 +131,8 @@ export async function GET(request: Request) {
           observerId: '',
           observerName: '???',
           observerTeam: '비공개',
+          praiseMessage: '',
+          noteMessage: '',
           isRevealed: false,
           isGuessedCorrectly: false,
           isTargetCheckedIn: isCheckedIn
