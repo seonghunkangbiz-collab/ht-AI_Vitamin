@@ -123,7 +123,7 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
                 {activeCapsule.keywords.map((kw, i) => (
                   <span
                     key={i}
-                    className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30"
+                    className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40 shadow-sm shadow-indigo-500/20 backdrop-blur-sm"
                   >
                     #{kw}
                   </span>
@@ -132,7 +132,7 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
             </div>
 
             {/* Analysis Quote */}
-            <div className="my-6 p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 flex items-start gap-3">
+            <div className="my-6 p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 flex items-start gap-3 shadow-inner">
               <Quote className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
               <p className="text-sm font-semibold text-indigo-200 leading-relaxed">
                 {activeCapsule.analysis}
@@ -140,14 +140,21 @@ export default function TimeCapsuleSegment({ capsules, currentIndex, onNavigate,
             </div>
 
             {/* AI Letter Body */}
-            <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-              <div className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Vitamin Letter</span>
+            <div className="p-6 rounded-2xl bg-slate-950/70 border border-slate-800/90 shadow-xl">
+              <div className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                  <span>AI Vitamin Letter</span>
+                </div>
+                {activeCapsule.letter.length > 200 && (
+                  <span className="text-[10px] text-slate-400 font-normal">스크롤하여 전체 읽기</span>
+                )}
               </div>
-              <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-medium">
-                {activeCapsule.letter}
-              </p>
+              <div className="max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-500/40 scrollbar-track-transparent">
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-medium">
+                  {activeCapsule.letter}
+                </p>
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>

@@ -2,10 +2,11 @@
 
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Award, Sparkles, Trophy, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Gift, Award, Sparkles, Trophy, CheckCircle, ShieldCheck, Volume2, VolumeX } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { RevealDrawItem } from '@/lib/reveal-day/types';
 import { getUserTitle } from '@/lib/reveal-day/titles';
+import { soundEffects } from '@/lib/reveal-day/sound-effects';
 
 interface LuckyDrawSegmentProps {
   draws: RevealDrawItem[];
@@ -32,12 +33,27 @@ export default function LuckyDrawSegment({
 
   const latestWinner = activeDraw || (sortedRecentFirst.length > 0 ? sortedRecentFirst[0] : null);
 
-  // Trigger celebration confetti on beam display when a winner is announced
+  // Trigger celebration confetti and triumphant fanfare when a winner is announced
   const lastFiredWinnerIdRef = useRef<string | null>(null);
+
+  // Audio: Drum roll during draw
+  useEffect(() => {
+    if (isDrawing) {
+      soundEffects.startDrumRoll();
+    } else {
+      soundEffects.stopDrumRoll();
+    }
+    return () => soundEffects.stopDrumRoll();
+  }, [isDrawing]);
 
   useEffect(() => {
     if (!latestWinner || latestWinner.id === lastFiredWinnerIdRef.current) return;
     lastFiredWinnerIdRef.current = latestWinner.id;
+
+    // Play celebratory fanfare
+    try {
+      soundEffects.playFanfare();
+    } catch {}
 
     try {
       const end = Date.now() + 3.5 * 1000;

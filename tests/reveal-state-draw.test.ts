@@ -680,6 +680,43 @@ test('Test 32: Exactly 2 Secret Mates per participant (24 targets x 2 = 48 pairs
   }
 });
 
+test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recommended Features Integrity', async () => {
+  const { REHEARSAL_MATE_PAIRS } = await import('@/lib/reveal-day/rehearsal-data');
+  const { soundEffects } = await import('@/lib/reveal-day/sound-effects');
+
+  // 1. Observation note verification for Hong Tae-young (user-01) observed by Kang Seong-hun (user-15)
+  const hongKangPair = REHEARSAL_MATE_PAIRS.find(
+    p => p.targetId === 'user-01' && p.observerId === 'user-15'
+  );
+  assert.ok(hongKangPair, 'Kang Seong-hun must be an observer for Hong Tae-young');
+  assert.equal(
+    hongKangPair?.noteMessage,
+    '매우 바쁨, 고민이 많아 보임. ',
+    'Hong Tae-young card must show Kang Seong-hun latest observation note'
+  );
+
+  // 2. Observation note verification for Kim Jeong-soo (user-06) observed by Kang Seong-hun (user-15)
+  const kimKangPair = REHEARSAL_MATE_PAIRS.find(
+    p => p.targetId === 'user-06' && p.observerId === 'user-15'
+  );
+  assert.ok(kimKangPair, 'Kang Seong-hun must be an observer for Kim Jeong-soo');
+  assert.equal(
+    kimKangPair?.noteMessage,
+    '젠틀한 모습, 멋진 목소리, 고3 라이딩 화이팅!',
+    'Kim Jeong-soo card must show Kang Seong-hun latest observation note'
+  );
+
+  // 3. Sound Effects API presence and safe execution
+  assert.equal(typeof soundEffects.startDrumRoll, 'function');
+  assert.equal(typeof soundEffects.stopDrumRoll, 'function');
+  assert.equal(typeof soundEffects.playFanfare, 'function');
+  soundEffects.setMuted(true);
+  soundEffects.startDrumRoll();
+  soundEffects.stopDrumRoll();
+  soundEffects.playFanfare();
+});
+
+
 
 
 

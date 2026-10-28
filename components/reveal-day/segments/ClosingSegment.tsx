@@ -53,7 +53,7 @@ export default function ClosingSegment() {
       {/* Footer Info */}
       <div className="z-10 flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-3">
         <span>* 참석자 모바일 (/live)에서 박수 및 하트 반응을 보내실 수 있습니다.</span>
-        <span>➡️: 피자 파티 및 기념 촬영으로 이동</span>
+        <span>➡️: 피자 파티 & AI Vitamin Song 세그먼트로 이동</span>
       </div>
     </div>
   );

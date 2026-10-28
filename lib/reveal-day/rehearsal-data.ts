@@ -61,7 +61,10 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
 
     selectedAssignments.forEach(a => {
       const observer = userMap.get(a.userId);
-      const matchedNote = INITIAL_NOTES.find(n => n.userId === a.userId && n.targetUserId === target.id);
+      const matchedNotes = INITIAL_NOTES
+        .filter(n => n.userId === a.userId && n.targetUserId === target.id)
+        .sort((n1, n2) => new Date(n2.updatedAt).getTime() - new Date(n1.updatedAt).getTime());
+      const matchedNote = matchedNotes[0];
 
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,

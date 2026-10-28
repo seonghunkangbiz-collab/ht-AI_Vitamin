@@ -26,8 +26,12 @@ import {
   FileText,
   RotateCcw,
   MessageSquare,
-  Send
+  Send,
+  Download,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 function LiveAttendeeContent() {
   const searchParams = useSearchParams();
@@ -42,8 +46,11 @@ function LiveAttendeeContent() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [myWinningPrize, setMyWinningPrize] = useState<{ prizeName: string; roundNumber: number } | null>(null);
+  const [showWinnerModal, setShowWinnerModal] = useState<boolean>(false);
   const [myCapsule, setMyCapsule] = useState<any | null>(null);
   const [isLoadingCapsule, setIsLoadingCapsule] = useState(false);
+  const [isCapturingCapsule, setIsCapturingCapsule] = useState(false);
+  const capsuleCardRef = useRef<HTMLDivElement | null>(null);
   const [hasGuessed, setHasGuessed] = useState(false);
   const [selectedGuess, setSelectedGuess] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -96,7 +103,7 @@ function LiveAttendeeContent() {
     initUser();
   }, [eventId]);
 
-  // Check for winning alert
+  // Check for winning alert with haptic vibration & gold popup
   useEffect(() => {
     if (!currentUserState) return;
     const interval = setInterval(async () => {
@@ -106,8 +113,12 @@ function LiveAttendeeContent() {
           const data = await res.json();
           if (data.winningPrize && !myWinningPrize) {
             setMyWinningPrize(data.winningPrize);
+            setShowWinnerModal(true);
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              try { navigator.vibrate([200, 100, 200, 100, 300]); } catch {}
+            }
             try {
-              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+              confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 } });
             } catch {}
           }
         }
@@ -115,6 +126,24 @@ function LiveAttendeeContent() {
     }, 4000);
     return () => clearInterval(interval);
   }, [currentUserState, eventId, myWinningPrize]);
+
+  const handleDownloadCapsuleImage = async () => {
+    if (!capsuleCardRef.current) return;
+    setIsCapturingCapsule(true);
+    try {
+      const canvas = await html2canvas(capsuleCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const image = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `AI_Vitamin_TimeCapsule_${currentUserState?.name || 'User'}.png`;
+      link.click();
+    } catch {}
+    setIsCapturingCapsule(false);
+  };
 
   // Realtime channel subscription on reveal_channel for sub-50ms stage synchronization
   useEffect(() => {
@@ -526,20 +555,50 @@ function LiveAttendeeContent() {
                 다음 시즌에는 멋진 타임캡슐의 주인공이 되실 수 있습니다!
               </div>
             ) : myCapsule ? (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-3">
-                <div className="flex flex-wrap gap-1">
-                  {(myCapsule.keywords || []).map((k: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 font-bold text-[10px]">
-                      #{k}
+              <div className="flex flex-col gap-2.5">
+                <div ref={capsuleCardRef} className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/60 via-white to-sky-50/60 border border-indigo-100 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-indigo-100/60">
+                    <span className="text-[11px] font-black text-indigo-950 flex items-center gap-1">
+                      <span>✨</span>
+                      <span>{currentUserState?.name} 님의 AI 타임캡슐</span>
                     </span>
-                  ))}
+                    <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      HT AI Vitamin
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(myCapsule.keywords || []).map((k: string, i: number) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 font-bold text-[10px]">
+                        #{k}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-indigo-950 font-semibold italic bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/50">
+                    “{myCapsule.analysis}”
+                  </p>
+                  <div className="text-xs text-slate-700 whitespace-pre-line leading-relaxed font-medium">
+                    {myCapsule.letter}
+                  </div>
                 </div>
-                <p className="text-xs text-slate-700 font-medium italic">
-                  “{myCapsule.analysis}”
-                </p>
-                <div className="pt-2 border-t border-slate-200 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                  {myCapsule.letter}
-                </div>
+
+                {/* Image Capture Download Button */}
+                <button
+                  onClick={handleDownloadCapsuleImage}
+                  disabled={isCapturingCapsule}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  {isCapturingCapsule ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                      <span>타임캡슐 이미지 생성 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5 text-sky-400" />
+                      <span>타임캡슐 이미지로 소장/저장하기 (PNG)</span>
+                    </>
+                  )}
+                </button>
               </div>
             ) : (
               <button
@@ -674,6 +733,42 @@ function LiveAttendeeContent() {
           }, 300);
         }}
       />
+      {/* Full-screen Gold Celebration Modal for Lucky Draw Winner */}
+      {showWinnerModal && myWinningPrize && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-5">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            className="w-full max-w-sm rounded-3xl bg-gradient-to-b from-amber-400 via-yellow-500 to-amber-600 p-6 text-slate-950 shadow-2xl flex flex-col items-center text-center relative border-4 border-yellow-200"
+          >
+            <div className="w-20 h-20 rounded-full bg-white text-5xl flex items-center justify-center mb-3 shadow-xl">
+              👑
+            </div>
+            <span className="text-xs font-black tracking-widest uppercase bg-slate-950/20 px-3 py-1 rounded-full text-slate-900 mb-2">
+              🎉 행운의 당첨자 확정! 🎉
+            </span>
+            <h2 className="text-2xl font-black text-slate-950 leading-tight">
+              {currentUserState?.name} 님,
+              <br />
+              축하합니다!
+            </h2>
+            <div className="my-3 p-3 rounded-2xl bg-slate-950/90 text-white w-full border border-amber-300/40">
+              <div className="text-[11px] text-amber-400 font-bold">Round {myWinningPrize.roundNumber} 당첨 상품</div>
+              <div className="text-base font-black text-amber-300 mt-0.5">{myWinningPrize.prizeName}</div>
+            </div>
+            <p className="text-xs text-slate-900 font-medium">
+              무대에서 당첨이 발표되었습니다!<br />행사 종료 후 운영진으로부터 상품을 수령하세요.
+            </p>
+            <button
+              onClick={() => setShowWinnerModal(false)}
+              className="mt-4 w-full py-3 rounded-2xl bg-slate-950 hover:bg-slate-900 text-amber-400 font-black text-xs shadow-lg transition-all"
+            >
+              확인 완료 (닫기)
+            </button>
+          </motion.div>
+        </div>
+      )}
     </MobileLayout>
   );
 }

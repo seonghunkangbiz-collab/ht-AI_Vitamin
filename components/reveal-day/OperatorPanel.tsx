@@ -38,11 +38,15 @@ import {
   Folder,
   HardDrive,
   Upload,
-  Loader2
+  Loader2,
+  Users,
+  Wifi,
+  X
 } from 'lucide-react';
 import { AI_VITAMIN_PLAYLIST, parseVideoUrl } from '@/lib/reveal-day/song-playlist';
 import { saveLocalVideoToDB, getLocalVideoFromDB, clearLocalVideoFromDB } from '@/lib/reveal-day/local-video-storage';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
+import { INITIAL_USERS } from '@/lib/seedData';
 
 interface OperatorPanelProps {
   event: RevealEvent;
@@ -88,6 +92,82 @@ export default function OperatorPanel({
 
   // Modals / Inputs
   const [showConfirmModal, setShowConfirmModal] = useState<string | null>(null);
+  const [showCheckinModal, setShowCheckinModal] = useState<boolean>(false);
+  const [checkinAttendees, setCheckinAttendees] = useState<{ user: any; isCheckedIn: boolean; checkedInAt?: string }[]>([]);
+  const [isLoadingCheckins, setIsLoadingCheckins] = useState<boolean>(false);
+
+  // Time Keeper (Elapsed timer per segment)
+  const [segmentStartTime, setSegmentStartTime] = useState<number>(Date.now());
+  const [segmentElapsedSeconds, setSegmentElapsedSeconds] = useState<number>(0);
+
+  // Network connection status
+  const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(true);
+
+  React.useEffect(() => {
+    setSegmentStartTime(Date.now());
+    setSegmentElapsedSeconds(0);
+  }, [currentSegment]);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setSegmentElapsedSeconds(Math.floor((Date.now() - segmentStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [segmentStartTime]);
+
+  React.useEffect(() => {
+    const handleOnline = () => setIsNetworkOnline(true);
+    const handleOffline = () => setIsNetworkOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const fetchCheckinList = async () => {
+    setIsLoadingCheckins(true);
+    try {
+      const activeMembers = INITIAL_USERS.filter(u => u.role !== 'admin');
+      const res = await fetch(`/api/reveal-day/interactions?type=checkins&eventId=${event.id}`);
+      let checkedInUserIds = new Set<string>();
+      let checkinTimeMap = new Map<string, string>();
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.checkins)) {
+          data.checkins.forEach((c: any) => {
+            checkedInUserIds.add(c.user_id);
+            if (c.created_at) checkinTimeMap.set(c.user_id, c.created_at);
+          });
+        }
+      }
+
+      // If rehearsal mode and DB checkins are empty, simulate checked-in users based on publicState.checkinCount
+      if (isRehearsal && checkedInUserIds.size === 0) {
+        const simCount = Math.min(publicState.checkinCount || 22, activeMembers.length);
+        for (let i = 0; i < simCount; i++) {
+          checkedInUserIds.add(activeMembers[i].id);
+        }
+      }
+
+      const list = activeMembers.map(user => ({
+        user,
+        isCheckedIn: checkedInUserIds.has(user.id),
+        checkedInAt: checkinTimeMap.get(user.id)
+      }));
+
+      // Sort: unchecked first (amber attention), then checked-in
+      list.sort((a, b) => {
+        if (a.isCheckedIn === b.isCheckedIn) return a.user.name.localeCompare(b.user.name);
+        return a.isCheckedIn ? 1 : -1;
+      });
+
+      setCheckinAttendees(list);
+    } catch {}
+    setIsLoadingCheckins(false);
+  };
 
   const completedDraws = draws.filter(d => !d.isVoided);
   const completedRounds = completedDraws.map(d => d.roundNumber);
@@ -457,8 +537,29 @@ export default function OperatorPanel({
       {/* Panel Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div>
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Operator Controls</h3>
-          <span className="text-[11px] text-sky-400 font-semibold">{meta.title} ({meta.timeRange})</span>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Operator Controls</h3>
+            {/* Network Health Indicator */}
+            <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              isNetworkOnline
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isNetworkOnline ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+              <span>{isNetworkOnline ? 'Realtime Live' : 'Polling Fallback'}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[11px] text-sky-400 font-semibold">{meta.title} ({meta.timeRange})</span>
+            {/* Time Keeper Badge */}
+            <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-bold border ${
+              segmentElapsedSeconds > meta.durationMinutes * 60
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+            }`}>
+              ⏱️ {formatAudioTime(segmentElapsedSeconds)} / 권장 {meta.durationMinutes}:00
+            </span>
+          </div>
         </div>
         {onOpenPreflight && (
           <button
@@ -510,9 +611,18 @@ export default function OperatorPanel({
           <div className="p-3.5 rounded-xl bg-slate-950/70 border border-sky-500/30 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-sky-400">참석자 체크인 세션 관리</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 font-bold">
-                체크인: <strong>{publicState.checkinCount || 0}</strong> / 26명
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchCheckinList();
+                  setShowCheckinModal(true);
+                }}
+                className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-400/40 font-bold transition-all flex items-center gap-1 shadow-sm"
+                title="체크인 명단 및 미체크인자 확인"
+              >
+                <Users className="w-3 h-3" />
+                <span>체크인: <strong>{publicState.checkinCount || 0}</strong> / 26명 (명단 확인)</span>
+              </button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               화면의 QR을 스캔한 참가자들이 모바일에서 실시간 체크인 중입니다.
@@ -1823,6 +1933,102 @@ export default function OperatorPanel({
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-500 shadow-lg shadow-red-600/40"
               >
                 전체 초기화 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Persistent Shortcut Cheat Sheet */}
+      <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+        <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-sky-300 font-bold">Space</kbd> 다음 진행</span>
+        <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-amber-300 font-bold">B</kbd> 블랙아웃</span>
+        <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-indigo-300 font-bold">H</kbd> 무대 홀딩</span>
+        <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-slate-300 font-bold">F</kbd> 전체화면</span>
+        <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-emerald-300 font-bold">C</kbd> 소통창</span>
+      </div>
+
+      {showCheckinModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full text-white shadow-2xl flex flex-col gap-4 max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-sky-400" />
+                <h3 className="font-bold text-base">참석자 체크인 현황 명단</h3>
+              </div>
+              <button
+                onClick={() => setShowCheckinModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Stats summary */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
+              <span className="text-slate-400">
+                총 인원: <strong className="text-white">26명</strong>
+              </span>
+              <span className="text-emerald-400 font-bold">
+                체크인 완료: {checkinAttendees.filter(a => a.isCheckedIn).length}명
+              </span>
+              <span className="text-amber-400 font-bold">
+                미체크인: {checkinAttendees.filter(a => !a.isCheckedIn).length}명
+              </span>
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto max-h-96 flex flex-col gap-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+              {isLoadingCheckins ? (
+                <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                  <span>체크인 명단을 불러오는 중...</span>
+                </div>
+              ) : (
+                checkinAttendees.map(item => (
+                  <div
+                    key={item.user.id}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                      item.isCheckedIn
+                        ? 'bg-emerald-950/20 border-emerald-500/30 text-slate-200'
+                        : 'bg-amber-950/25 border-amber-500/40 text-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">{item.user.avatar || '👤'}</span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-white text-sm">{item.user.name}</span>
+                          <span className="text-[10px] text-sky-300 bg-sky-950 px-1.5 py-0.2 rounded border border-sky-800">
+                            {getUserTitle(item.user.name)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">{item.user.team}</span>
+                      </div>
+                    </div>
+                    <div>
+                      {item.isCheckedIn ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>체크인 완료</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold animate-pulse">
+                          <Clock className="w-3 h-3" />
+                          <span>미체크인 (호명 권장)</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setShowCheckinModal(false)}
+                className="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-all"
+              >
+                닫기
               </button>
             </div>
           </div>

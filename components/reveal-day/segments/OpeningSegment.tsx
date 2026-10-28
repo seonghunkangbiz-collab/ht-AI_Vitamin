@@ -145,7 +145,7 @@ export default function OpeningSegment({ checkinCount, totalAttendees = 26, mode
 
       {/* Bottom Timeline Preview */}
       <div className="z-10 pt-4 border-t border-slate-800/80">
-        <div className="grid grid-cols-8 gap-2">
+        <div className="grid grid-cols-7 gap-2">
           {ORDERED_SEGMENTS.filter(s => s !== 'ended').map((seg, idx) => {
             const meta = SEGMENT_METADATA[seg];
             const isCurrent = seg === 'opening';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { REHEARSAL_MATE_PAIRS } from '@/lib/reveal-day/rehearsal-data';
+import { INITIAL_NOTES } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,13 +54,39 @@ export async function GET(request: Request) {
         .select('sender_user_id, recipient_user_id, content, refined_content')
         .order('created_at', { ascending: false });
 
-      // Fetch observation notes to correlate with mate pairs
-      const { data: notes } = await supabase
+      // Fetch latest observation notes (query active private_notes first, supplemented by history and seed)
+      const { data: dbNotes } = await supabase
+        .from('private_notes')
+        .select('user_id, target_user_id, content, updated_at, created_at')
+        .order('updated_at', { ascending: false });
+
+      const { data: historyNotes } = await supabase
         .from('private_note_history')
-        .select('user_id, target_user_id, content, change_type')
+        .select('user_id, target_user_id, content, change_type, created_at')
         .order('created_at', { ascending: false });
 
-      const activeNotes = (notes || []).filter(n => n.change_type !== 'delete' && n.content?.trim());
+      // Note lookup map: key `${user_id}->${target_user_id}` => latest note content
+      const noteMap = new Map<string, string>();
+      // 1. Seed fallback
+      INITIAL_NOTES.forEach(n => {
+        if (n.userId && n.targetUserId && n.content?.trim()) {
+          noteMap.set(`${n.userId}->${n.targetUserId}`, n.content.trim());
+        }
+      });
+      // 2. History rows (older to newer so newer overwrites)
+      (historyNotes || [])
+        .filter(h => h.change_type !== 'delete' && h.content?.trim())
+        .reverse()
+        .forEach(h => {
+          noteMap.set(`${h.user_id}->${h.target_user_id}`, h.content.trim());
+        });
+      // 3. Active notes table (highest priority, latest registered notes overwrite)
+      (dbNotes || [])
+        .filter(n => n.content?.trim())
+        .reverse()
+        .forEach(n => {
+          noteMap.set(`${n.user_id}->${n.target_user_id}`, n.content.trim());
+        });
 
       activeUsers.forEach((target, targetIdx) => {
         let targetAssignments = (assignments || []).filter(a => a.target_user_id === target.id);
@@ -82,12 +109,14 @@ export async function GET(request: Request) {
           }
         }
 
-        // Prioritize observers with praises/notes, take exactly 2
+        // Prioritize observers with latest notes, then praises, take exactly 2
         const selectedAssignments = targetAssignments
           .sort((a, b) => {
-            const hasPraiseA = (praises || []).some(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
-            const hasPraiseB = (praises || []).some(p => p.sender_user_id === b.user_id && p.recipient_user_id === target.id);
-            return (hasPraiseB ? 1 : 0) - (hasPraiseA ? 1 : 0);
+            const hasNoteA = noteMap.has(`${a.user_id}->${target.id}`) ? 2 : 0;
+            const hasNoteB = noteMap.has(`${b.user_id}->${target.id}`) ? 2 : 0;
+            const hasPraiseA = (praises || []).some(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id) ? 1 : 0;
+            const hasPraiseB = (praises || []).some(p => p.sender_user_id === b.user_id && p.recipient_user_id === target.id) ? 1 : 0;
+            return (hasNoteB + hasPraiseB) - (hasNoteA + hasPraiseA);
           })
           .slice(0, 2);
 
@@ -96,7 +125,7 @@ export async function GET(request: Request) {
         selectedAssignments.forEach(a => {
           const observer = userMap.get(a.user_id);
           const matchedPraise = (praises || []).find(p => p.sender_user_id === a.user_id && p.recipient_user_id === target.id);
-          const matchedNote = activeNotes.find(n => n.user_id === a.user_id && n.target_user_id === target.id);
+          const latestNote = noteMap.get(`${a.user_id}->${target.id}`) || '';
 
           allPairs.push({
             id: a.id,
@@ -108,7 +137,7 @@ export async function GET(request: Request) {
             targetName: target.name,
             targetTeam: target.team,
             praiseMessage: matchedPraise?.refined_content || matchedPraise?.content || '',
-            noteMessage: matchedNote?.content || ''
+            noteMessage: latestNote
           });
         });
       });
