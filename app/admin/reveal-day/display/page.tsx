@@ -192,8 +192,8 @@ function DisplayContent() {
       </div>
 
       {/* Presentation Stage Canvas (Left / Center) */}
-      <div className="flex-1 h-full flex items-center justify-center p-3.5 overflow-hidden">
-        <div className="w-full h-full max-w-[1920px] max-h-[1080px] flex items-center justify-center">
+      <div className="flex-1 h-full flex items-center justify-center p-2 2xl:p-3 overflow-hidden min-h-0 min-w-0">
+        <div className="w-full h-full max-w-[1920px] max-h-[1080px] flex items-center justify-center min-h-0 min-w-0">
           <StageCanvas
             publicState={publicState}
             snapshotStats={snapshotStats}

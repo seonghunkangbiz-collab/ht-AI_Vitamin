@@ -42,7 +42,7 @@ export default function StageCanvas({
   // 1. Instant Blackout (B key)
   if (isBlackout) {
     return (
-      <div className="w-full h-full aspect-video bg-black flex items-center justify-center select-none shadow-2xl overflow-hidden rounded-2xl">
+      <div className="max-w-full max-h-full aspect-video bg-black flex items-center justify-center select-none shadow-2xl overflow-hidden rounded-2xl w-full h-auto">
         <span className="text-zinc-900 text-xs font-mono">BLACKOUT</span>
       </div>
     );
@@ -51,7 +51,7 @@ export default function StageCanvas({
   // 2. Standby / Holding Screen (H key)
   if (isHolding) {
     return (
-      <div className="w-full h-full aspect-video bg-slate-950 flex flex-col items-center justify-center p-12 text-white select-none shadow-2xl overflow-hidden rounded-2xl border border-slate-800">
+      <div className="max-w-full max-h-full aspect-video bg-slate-950 flex flex-col items-center justify-center p-8 text-white select-none shadow-2xl overflow-hidden rounded-2xl border border-slate-800 w-full h-auto">
         <motion.div
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ repeat: Infinity, duration: 2.5 }}
@@ -68,9 +68,9 @@ export default function StageCanvas({
     );
   }
 
-  // 3. 16:9 Presentation Stage
+  // 3. 16:9 Presentation Stage (Strictly bounds within viewport without vertical overflow)
   return (
-    <div className="w-full h-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
+    <div className="max-w-full max-h-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative w-full h-auto flex flex-col min-h-0">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSegment}
@@ -78,7 +78,7 @@ export default function StageCanvas({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35 }}
-          className="w-full h-full"
+          className="w-full h-full flex flex-col min-h-0 overflow-hidden"
         >
           {currentSegment === 'opening' && (
             <OpeningSegment
