@@ -690,7 +690,7 @@ test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recom
   );
   assert.ok(hongKangPair, 'Kang Seong-hun must be an observer for Hong Tae-young');
   assert.ok(
-    hongKangPair?.noteMessage.includes('수많은 이슈와 현안 속에서도 늘 중심을 잡고 하나하나 해결해 나가시는 든든한 해결사, 본부장님!'),
+    hongKangPair?.noteMessage?.includes('수많은 이슈와 현안 속에서도 늘 중심을 잡고 하나하나 해결해 나가시는 든든한 해결사, 본부장님!'),
     'Hong Tae-young card must show Kang Seong-hun latest observation note from today'
   );
 
