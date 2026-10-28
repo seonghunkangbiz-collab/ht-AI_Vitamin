@@ -110,8 +110,9 @@ export async function GET(request: Request) {
     // Unrevealed pairs provide target info (for card layout) with strictly masked observer data.
     const safePairs = allPairs.map((p, idx) => {
       const isRevealed = idx < currentRevealIndex;
+      // Strictly verify if the attendee checked in and submitted a matching guess on mobile /live
       const dbGuessed = userGuessMap.get(p.targetId) === p.observerId;
-      const isGuessed = dbGuessed || (isRehearsal && Boolean(p.isGuessedCorrectly));
+      const isGuessed = Boolean(dbGuessed);
       const isCheckedIn = checkinSet.has(p.targetId) || isRehearsal;
 
       if (isRevealed) {

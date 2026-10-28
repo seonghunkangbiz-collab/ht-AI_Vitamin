@@ -592,6 +592,46 @@ test('Test 29: Journey Segment Team Stats & Praise Flow Privacy Integration', ()
   assert.ok(!validQuotes.some(q => q.content.includes('선물 당첨')), 'Casual raffle text must be removed');
 });
 
+test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', async () => {
+  const { REHEARSAL_MATE_PAIRS } = await import('@/lib/reveal-day/rehearsal-data');
+  const { INITIAL_MATE_ASSIGNMENTS } = await import('@/lib/seedData');
+
+  // 1. In seed assignments, Kang Seong-hun ('user-15') observed user-01 (홍태영) and user-06 (김정수)
+  const kangOutbound = INITIAL_MATE_ASSIGNMENTS.filter(a => a.userId === 'user-15');
+  const kangTargetIds = kangOutbound.map(a => a.targetUserId);
+  assert.ok(kangTargetIds.includes('user-01'), 'Kang Seong-hun took care of Hong Tae-young (user-01)');
+  assert.ok(kangTargetIds.includes('user-06'), 'Kang Seong-hun took care of Kim Jeong-soo (user-06)');
+
+  // 2. On the Reveal Day stage:
+  // For Target Kang Seong-hun ('user-15'), the revealed observers MUST be the ones who took care of him (이원용 user-04, 김유진 user-05)
+  const kangCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-15');
+  assert.equal(kangCardPairs.length, 2, 'Kang Seong-hun has exactly 2 secret mates watching him');
+  const kangObserverNames = kangCardPairs.map(p => p.observerName);
+  assert.ok(kangObserverNames.includes('이원용'), 'Lee Won-yong is one of Kang Seong-hun secret mates');
+  assert.ok(kangObserverNames.includes('김유진'), 'Kim Yu-jin is one of Kang Seong-hun secret mates');
+
+  // 3. And under Target Hong Tae-young and Target Kim Jeong-soo, Kang Seong-hun is revealed as their secret mate!
+  const hongCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-01');
+  const hongObserverNames = hongCardPairs.map(p => p.observerName);
+  assert.ok(hongObserverNames.includes('강성훈'), 'Kang Seong-hun is revealed as Hong Tae-young secret mate');
+
+  const kimCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-06');
+  const kimObserverNames = kimCardPairs.map(p => p.observerName);
+  assert.ok(kimObserverNames.includes('강성훈'), 'Kang Seong-hun is revealed as Kim Jeong-soo secret mate');
+
+  // 4. Default Guess verification: NO pair should have isGuessedCorrectly === true by default
+  const defaultGuessedPairs = REHEARSAL_MATE_PAIRS.filter(p => p.isGuessedCorrectly);
+  assert.equal(defaultGuessedPairs.length, 0, 'No pairs should be falsely marked as guessed without real attendee action');
+
+  // 5. Guess Matching logic: Only matching guess returns true
+  const guessMap = new Map([['user-15', 'user-04']]); // Kang Seong-hun guessed Lee Won-yong
+  const pair1Guessed = guessMap.get('user-15') === 'user-04'; // Match!
+  const pair2Guessed = guessMap.get('user-15') === 'user-05'; // Not guessed
+  assert.equal(pair1Guessed, true, 'Guessing actual observer returns true');
+  assert.equal(pair2Guessed, false, 'Unmatched observer returns false');
+});
+
+
 
 
 

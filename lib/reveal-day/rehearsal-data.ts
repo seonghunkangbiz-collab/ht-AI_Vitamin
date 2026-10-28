@@ -1,7 +1,7 @@
 import type { RevealTimeCapsuleItem, MatePairReveal, RevealCuratedItem, RevealPublicState } from './types';
-import { INITIAL_USERS } from '../seedData';
+import { INITIAL_USERS, INITIAL_MATE_ASSIGNMENTS, INITIAL_NOTES } from '../seedData';
 
-// 24 actual active members from seedData (excluding admin)
+// 26 actual active members from seedData (excluding admin)
 const REAL_ATTENDEES = INITIAL_USERS.filter(u => u.role !== 'admin');
 
 export const REHEARSAL_USERS = REAL_ATTENDEES.map((user) => {
@@ -16,31 +16,63 @@ export const REHEARSAL_USERS = REAL_ATTENDEES.map((user) => {
 
 export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
   const pairs: MatePairReveal[] = [];
+  const userMap = new Map(REHEARSAL_USERS.map(u => [u.id, u]));
+
+  // Base assignments from actual INITIAL_MATE_ASSIGNMENTS
+  const allAssignments = [...INITIAL_MATE_ASSIGNMENTS];
+
+  // Ensure user-25 (이현서) and user-26 (최지훈) have bidirectional assignments
+  if (!allAssignments.some(a => a.targetUserId === 'user-25')) {
+    allAssignments.push(
+      { id: 'm-seed-u25-1', userId: 'user-26', targetUserId: 'user-25', assignedAt: '2026-09-09T03:16:26.732Z' },
+      { id: 'm-seed-u25-2', userId: 'user-13', targetUserId: 'user-25', assignedAt: '2026-09-09T03:16:26.732Z' }
+    );
+  }
+  if (!allAssignments.some(a => a.targetUserId === 'user-26')) {
+    allAssignments.push(
+      { id: 'm-seed-u26-1', userId: 'user-25', targetUserId: 'user-26', assignedAt: '2026-09-09T03:16:26.732Z' },
+      { id: 'm-seed-u26-2', userId: 'user-14', targetUserId: 'user-26', assignedAt: '2026-09-09T03:16:26.732Z' }
+    );
+  }
+
   let pairIdx = 0;
-  REHEARSAL_USERS.forEach((user, idx) => {
-    // 2 observers for each target
-    const obs1 = REHEARSAL_USERS[(idx + 7) % 24];
-    const obs2 = REHEARSAL_USERS[(idx + 13) % 24];
-    [obs1, obs2].forEach((observer, obsSubIdx) => {
-      const batchIndex = Math.floor(pairIdx / 8); // 6 batches of 8 relations
-      // Realistic simulation: some attendees guessed their mate correctly for demo/rehearsal
-      const isGuessed = (idx + obsSubIdx) % 3 === 0;
+  REHEARSAL_USERS.forEach((target, targetIdx) => {
+    // Inbound: The observers who secretly watched and cared for this target
+    // Prioritize observers who left notes/praises, selecting 2 secret mates per target card
+    const targetAssignments = allAssignments
+      .filter(a => a.targetUserId === target.id)
+      .sort((a, b) => {
+        const hasNoteA = INITIAL_NOTES.some(n => n.userId === a.userId && n.targetUserId === target.id) ? 1 : 0;
+        const hasNoteB = INITIAL_NOTES.some(n => n.userId === b.userId && n.targetUserId === target.id) ? 1 : 0;
+        return hasNoteB - hasNoteA;
+      })
+      .slice(0, 2);
+
+    const batchIndex = Math.floor(targetIdx / 4); // 4 targets per stage batch
+
+    targetAssignments.forEach(a => {
+      const observer = userMap.get(a.userId);
+      const matchedNote = INITIAL_NOTES.find(n => n.userId === a.userId && n.targetUserId === target.id);
+
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,
         batchIndex,
-        observerId: observer.id,
-        observerName: observer.name,
-        observerTeam: observer.team,
-        targetId: user.id,
-        targetName: user.name,
-        targetTeam: user.team,
+        observerId: a.userId,
+        observerName: observer?.name || '익명 메이트',
+        observerTeam: observer?.team || '',
+        targetId: target.id,
+        targetName: target.name,
+        targetTeam: target.team,
+        praiseMessage: '',
+        noteMessage: matchedNote?.content || '',
         isRevealed: false,
-        isGuessedCorrectly: isGuessed,
+        isGuessedCorrectly: false, // Strictly false by default; only true when actual mobile guess matches!
         isTargetCheckedIn: true
       });
       pairIdx++;
     });
   });
+
   return pairs;
 })();
 
