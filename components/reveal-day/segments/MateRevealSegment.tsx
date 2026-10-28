@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Lock, Sparkles, UserCheck, ShieldCheck, Heart } from 'lucide-react';
+import { Eye, Lock, Sparkles, UserCheck, ShieldCheck } from 'lucide-react';
 import { MatePairReveal, ReactionCounts } from '@/lib/reveal-day/types';
 import { getUserTitle } from '@/lib/reveal-day/titles';
 
@@ -232,7 +232,7 @@ export default function MateRevealSegment({
                           <div className="flex items-center justify-between text-[10px] text-sky-300 font-bold mb-1">
                             <div className="flex items-center gap-1">
                               <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                              <span className="tracking-wide">메이트의 최신 관찰 메모</span>
+                              <span className="tracking-wide">메이트의 관찰 메모</span>
                             </div>
                             {observer.noteMessage.length > 60 && (
                               <span className="text-[9px] text-sky-400/80 font-normal">스크롤하여 전체보기</span>
@@ -246,43 +246,8 @@ export default function MateRevealSegment({
                         </div>
                       )}
 
-                      {/* Companion Praise Message if both note and praise exist */}
-                      {isRevealed && observer.noteMessage && observer.praiseMessage && observer.noteMessage !== observer.praiseMessage && (
-                        <div className="mt-2 p-2 rounded-xl bg-slate-900/80 border border-amber-400/30 border-l-2 border-l-amber-400">
-                          <div className="flex items-center gap-1 text-[9.5px] text-amber-300 font-bold mb-0.5">
-                            <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" />
-                            <span>메이트가 전한 칭찬 카드</span>
-                          </div>
-                          <div className="max-h-16 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-amber-500/30">
-                            <p className="text-[10px] text-slate-300 italic whitespace-pre-line break-words leading-relaxed">
-                              &ldquo;{observer.praiseMessage}&rdquo;
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Fallback to praise message if no observation note was recorded */}
-                      {isRevealed && !observer.noteMessage && observer.praiseMessage && (
-                        <div className="mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-900/95 to-slate-900/95 border border-amber-400/30 border-l-2 border-l-amber-400 text-xs shadow-inner">
-                          <div className="flex items-center justify-between text-[10px] text-amber-300 font-bold mb-1">
-                            <div className="flex items-center gap-1">
-                              <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
-                              <span>메이트가 전한 칭찬</span>
-                            </div>
-                            {observer.praiseMessage.length > 60 && (
-                              <span className="text-[9px] text-amber-400/70 font-normal">스크롤하여 전체보기</span>
-                            )}
-                          </div>
-                          <div className="max-h-24 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-amber-500/40 scrollbar-track-transparent">
-                            <p className={`italic ${observer.praiseMessage.length > 70 ? 'text-[10.5px]' : 'text-[11.5px]'} leading-relaxed text-slate-200 whitespace-pre-line break-words`}>
-                              &ldquo;{observer.praiseMessage}&rdquo;
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Gentle fallback if no message was recorded at all */}
-                      {isRevealed && !observer.praiseMessage && !observer.noteMessage && (
+                      {/* Gentle fallback if no observation note was recorded */}
+                      {isRevealed && !observer.noteMessage && (
                         <div className="mt-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-[10.5px] text-slate-400 italic text-center">
                           &ldquo;보이지 않는 곳에서 항상 응원하고 있었습니다! ✨&rdquo;
                         </div>

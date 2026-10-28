@@ -603,12 +603,12 @@ test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', as
   assert.ok(kangTargetIds.includes('user-06'), 'Kang Seong-hun took care of Kim Jeong-soo (user-06)');
 
   // 2. On the Reveal Day stage:
-  // For Target Kang Seong-hun ('user-15'), the revealed observers MUST be the ones who took care of him (이상길 user-10 with real note, 마석현 user-17 with real praise)
+  // For Target Kang Seong-hun ('user-15'), the revealed observers MUST be the ones who took care of him (이상길 user-10 with real note, 이원용 user-04)
   const kangCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-15');
   assert.equal(kangCardPairs.length, 2, 'Kang Seong-hun has exactly 2 secret mates watching him');
   const kangObserverNames = kangCardPairs.map(p => p.observerName);
   assert.ok(kangObserverNames.includes('이상길'), 'Lee Sang-gil is one of Kang Seong-hun secret mates with real note');
-  assert.ok(kangObserverNames.includes('마석현'), 'Ma Seok-hyun is one of Kang Seong-hun secret mates with real praise');
+  assert.ok(kangObserverNames.includes('이원용'), 'Lee Won-yong is one of Kang Seong-hun assigned secret mates');
 
   // 3. And under Target Hong Tae-young and Target Kim Jeong-soo, Kang Seong-hun is revealed as their secret mate!
   const hongCardPairs = REHEARSAL_MATE_PAIRS.filter(p => p.targetId === 'user-01');
@@ -626,7 +626,7 @@ test('Test 30: Mystery Mate Reveal Logic & Rehearsal Data Inbound Integrity', as
   // 5. Guess Matching logic: Only matching guess returns true
   const guessMap = new Map([['user-15', 'user-10']]); // Kang Seong-hun guessed Lee Sang-gil
   const pair1Guessed = guessMap.get('user-15') === 'user-10'; // Match!
-  const pair2Guessed = guessMap.get('user-15') === 'user-17'; // Not guessed
+  const pair2Guessed = guessMap.get('user-15') === 'user-04'; // Not guessed
   assert.equal(pair1Guessed, true, 'Guessing actual observer returns true');
   assert.equal(pair2Guessed, false, 'Unmatched observer returns false');
 });
@@ -706,7 +706,16 @@ test('Test 33: Latest Observation Notes prioritized on Mystery Mate card & Recom
     'Kim Jeong-soo card must show Kang Seong-hun latest observation note'
   );
 
-  // 3. Sound Effects API presence and safe execution
+  // 3. Praise message exclusion & Mate-centric observer isolation verification
+  assert.equal(hongKangPair?.praiseMessage, '', 'Praise message must not be shown on Mystery Mate card');
+  assert.equal(kimKangPair?.praiseMessage, '', 'Praise message must not be shown on Mystery Mate card');
+
+  const kangAsObserverPairs = REHEARSAL_MATE_PAIRS.filter(p => p.observerId === 'user-15');
+  assert.equal(kangAsObserverPairs.length, 2, 'Kang Seong-hun must only be a secret mate for his 2 assigned targets');
+  const kangObserverTargetNames = kangAsObserverPairs.map(p => p.targetName);
+  assert.ok(kangObserverTargetNames.includes('홍태영') && kangObserverTargetNames.includes('김정수'), 'Kang Seong-hun only observes Hong Tae-young & Kim Jeong-soo');
+
+  // 4. Sound Effects API presence and safe execution
   assert.equal(typeof soundEffects.startDrumRoll, 'function');
   assert.equal(typeof soundEffects.stopDrumRoll, 'function');
   assert.equal(typeof soundEffects.playFanfare, 'function');

@@ -23,29 +23,16 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
 
   let pairIdx = 0;
   REHEARSAL_USERS.forEach((target, targetIdx) => {
-    // 1. Observers who actually wrote observation notes for this target (Highest Priority)
-    const noteObservers = INITIAL_NOTES
-      .filter(n => n.targetUserId === target.id && n.content?.trim())
-      .map(n => n.userId);
-
-    // 2. Observers who sent praise messages to this target
-    const praiseObservers = INITIAL_PRAISES
-      .filter(p => p.recipientUserId === target.id && (p.content?.trim() || p.refinedContent?.trim()))
-      .map(p => p.senderUserId);
-
-    // 3. Observers from initial assignments
+    // 1. Observers who were actually assigned as this target's mate (Highest Priority)
     const assignedObservers = INITIAL_MATE_ASSIGNMENTS
       .filter(a => a.targetUserId === target.id)
       .map(a => a.userId);
 
-    // Combine distinct candidate observer IDs (exclude self and recent joins)
-    const candidateIds = Array.from(new Set([
-      ...noteObservers,
-      ...praiseObservers,
-      ...assignedObservers
-    ])).filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
+    // Distinct assigned observer IDs (exclude self and recent additions)
+    const candidateIds = Array.from(new Set(assignedObservers))
+      .filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
 
-    // Ensure candidate pool has at least 2 distinct observers
+    // Ensure candidate pool has at least 2 distinct observers (fallback supplement only if needed)
     const otherCandidates = REHEARSAL_USERS.filter(u => u.id !== target.id && !candidateIds.includes(u.id));
     const crossTeam = otherCandidates.filter(u => u.team !== target.team);
     const supplementPool = crossTeam.length >= 2 ? crossTeam : otherCandidates;
@@ -59,10 +46,18 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
       suppIdx++;
     }
 
-    // Sort candidates: Note author = 20 pts, Praise sender = 5 pts, Initial assignment = 2 pts
+    // Rank candidates:
+    // 1. Assigned mates who wrote an observation note about this target (100 pts)
+    // 2. Assigned mates (50 pts)
+    // 3. Supplemented (0 pts)
     const selectedObserverIds = candidateIds.sort((a, b) => {
-      const scoreA = (noteObservers.includes(a) ? 20 : 0) + (praiseObservers.includes(a) ? 5 : 0) + (assignedObservers.includes(a) ? 2 : 0);
-      const scoreB = (noteObservers.includes(b) ? 20 : 0) + (praiseObservers.includes(b) ? 5 : 0) + (assignedObservers.includes(b) ? 2 : 0);
+      const isAssignedA = assignedObservers.includes(a);
+      const isAssignedB = assignedObservers.includes(b);
+      const hasNoteA = INITIAL_NOTES.some(n => n.userId === a && n.targetUserId === target.id && n.content?.trim());
+      const hasNoteB = INITIAL_NOTES.some(n => n.userId === b && n.targetUserId === target.id && n.content?.trim());
+
+      const scoreA = (isAssignedA ? 50 : 0) + (hasNoteA ? 50 : 0);
+      const scoreB = (isAssignedB ? 50 : 0) + (hasNoteB ? 50 : 0);
       return scoreB - scoreA;
     }).slice(0, 2);
 
@@ -77,10 +72,6 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
         .sort((n1, n2) => new Date(n2.updatedAt).getTime() - new Date(n1.updatedAt).getTime());
       const matchedNote = matchedNotes[0];
 
-      // Matched praise message
-      const matchedPraise = INITIAL_PRAISES
-        .find(p => p.senderUserId === obsId && p.recipientUserId === target.id);
-
       pairs.push({
         id: `rehearsal-pair-${pairIdx + 1}`,
         batchIndex,
@@ -90,7 +81,7 @@ export const REHEARSAL_MATE_PAIRS: MatePairReveal[] = (() => {
         targetId: target.id,
         targetName: target.name,
         targetTeam: target.team,
-        praiseMessage: matchedPraise?.refinedContent || matchedPraise?.content || '',
+        praiseMessage: '', // Mystery Mate Reveal focuses exclusively on observation notes from actual Mates
         noteMessage: matchedNote?.content || '',
         isRevealed: false,
         isGuessedCorrectly: false, // Strictly false by default; only true when actual mobile guess matches!

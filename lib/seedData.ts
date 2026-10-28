@@ -47,13 +47,19 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
   {
     "id": "m-1788923786733-pa72rn",
     "userId": "user-02",
-    "targetUserId": "user-16",
+    "targetUserId": "user-14",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
     "id": "m-1788923786733-97mwl4",
     "userId": "user-02",
-    "targetUserId": "user-19",
+    "targetUserId": "user-23",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-flo9xe",
+    "userId": "user-03",
+    "targetUserId": "user-11",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -63,9 +69,9 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-flo9xe",
-    "userId": "user-03",
-    "targetUserId": "user-13",
+    "id": "m-1788923786733-k5ffwx",
+    "userId": "user-04",
+    "targetUserId": "user-15",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -75,15 +81,9 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-k5ffwx",
-    "userId": "user-04",
-    "targetUserId": "user-15",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
     "id": "m-1788923786733-pta81e",
     "userId": "user-05",
-    "targetUserId": "user-15",
+    "targetUserId": "user-12",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -93,15 +93,15 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-tpowby",
-    "userId": "user-06",
-    "targetUserId": "user-18",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
     "id": "m-1788923786733-xm4q7e",
     "userId": "user-06",
     "targetUserId": "user-17",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-tpowby",
+    "userId": "user-06",
+    "targetUserId": "user-20",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -113,7 +113,7 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
   {
     "id": "m-1788923786733-rprheu",
     "userId": "user-07",
-    "targetUserId": "user-18",
+    "targetUserId": "user-21",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -129,15 +129,15 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-ax6gw1",
+    "id": "m-1788923786733-o0ofln",
     "userId": "user-09",
-    "targetUserId": "user-19",
+    "targetUserId": "user-11",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-o0ofln",
+    "id": "m-1788923786733-ax6gw1",
     "userId": "user-09",
-    "targetUserId": "user-01",
+    "targetUserId": "user-19",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -153,27 +153,27 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-x6tb36",
+    "id": "m-1788923786733-hu8nlq",
     "userId": "user-11",
-    "targetUserId": "user-18",
+    "targetUserId": "user-12",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-hu8nlq",
+    "id": "m-1788923786733-x6tb36",
     "userId": "user-11",
-    "targetUserId": "user-01",
+    "targetUserId": "user-22",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-qgaq0f",
+    "userId": "user-12",
+    "targetUserId": "user-14",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
     "id": "m-1788923786733-pqp1b2",
     "userId": "user-12",
     "targetUserId": "user-24",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
-    "id": "m-1788923786733-qgaq0f",
-    "userId": "user-12",
-    "targetUserId": "user-15",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -185,31 +185,31 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
   {
     "id": "m-1788923786733-1l5gbm",
     "userId": "user-13",
-    "targetUserId": "user-05",
+    "targetUserId": "user-08",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
     "id": "m-1788923786733-spmokt",
     "userId": "user-14",
-    "targetUserId": "user-04",
+    "targetUserId": "user-03",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
     "id": "m-1788923786733-geqjkv",
     "userId": "user-14",
-    "targetUserId": "user-18",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
-    "id": "m-1788923786733-8wdlyl",
-    "userId": "user-15",
-    "targetUserId": "user-06",
+    "targetUserId": "user-10",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
     "id": "m-1788923786733-s73rhd",
     "userId": "user-15",
     "targetUserId": "user-01",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-8wdlyl",
+    "userId": "user-15",
+    "targetUserId": "user-06",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -225,15 +225,15 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-qr060f",
-    "userId": "user-17",
-    "targetUserId": "user-23",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
     "id": "m-1788923786733-cttyh3",
     "userId": "user-17",
     "targetUserId": "user-18",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-qr060f",
+    "userId": "user-17",
+    "targetUserId": "user-23",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -249,14 +249,20 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-qfft3y",
+    "id": "m-1788923786733-tzv780",
     "userId": "user-19",
-    "targetUserId": "user-06",
+    "targetUserId": "user-04",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
-    "id": "m-1788923786733-tzv780",
+    "id": "m-1788923786733-qfft3y",
     "userId": "user-19",
+    "targetUserId": "user-09",
+    "assignedAt": "2026-09-09T03:16:26.732+00:00"
+  },
+  {
+    "id": "m-1788923786733-rhbkml",
+    "userId": "user-20",
     "targetUserId": "user-04",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
@@ -264,12 +270,6 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
     "id": "m-1788923786733-yxrrkk",
     "userId": "user-20",
     "targetUserId": "user-05",
-    "assignedAt": "2026-09-09T03:16:26.732+00:00"
-  },
-  {
-    "id": "m-1788923786733-rhbkml",
-    "userId": "user-20",
-    "targetUserId": "user-04",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {
@@ -281,7 +281,7 @@ export const INITIAL_MATE_ASSIGNMENTS: MateAssignment[] = [
   {
     "id": "m-1788923786733-7ki5os",
     "userId": "user-21",
-    "targetUserId": "user-06",
+    "targetUserId": "user-09",
     "assignedAt": "2026-09-09T03:16:26.732+00:00"
   },
   {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { REHEARSAL_MATE_PAIRS } from '@/lib/reveal-day/rehearsal-data';
-import { INITIAL_NOTES, INITIAL_PRAISES } from '@/lib/seedData';
+import { INITIAL_NOTES, INITIAL_PRAISES, INITIAL_MATE_ASSIGNMENTS } from '@/lib/seedData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,29 +89,21 @@ export async function GET(request: Request) {
         });
 
       activeUsers.forEach((target, targetIdx) => {
-        // Observers who actually wrote notes for this target
-        const noteObservers = Array.from(noteMap.keys())
-          .filter(k => k.endsWith(`->${target.id}`))
-          .map(k => k.split('->')[0]);
-
-        // Observers who sent praises to this target
-        const praiseObservers = (praises || [])
-          .filter(p => p.recipient_user_id === target.id && (p.content?.trim() || p.refined_content?.trim()))
-          .map(p => p.sender_user_id);
-
-        // Observers from initial assignments
-        const assignedObservers = (assignments || [])
+        // Observers from mate assignments (database or seed fallback)
+        let assignedObservers = (assignments || [])
           .filter(a => a.target_user_id === target.id)
           .map(a => a.user_id);
+        if (assignedObservers.length === 0) {
+          assignedObservers = INITIAL_MATE_ASSIGNMENTS
+            .filter(a => a.targetUserId === target.id)
+            .map(a => a.userId);
+        }
 
-        // Combine distinct candidate observer IDs (exclude self and recent joins)
-        const candidateIds = Array.from(new Set([
-          ...noteObservers,
-          ...praiseObservers,
-          ...assignedObservers
-        ])).filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
+        // Distinct assigned observer IDs (exclude self and recent joins)
+        const candidateIds = Array.from(new Set(assignedObservers))
+          .filter(uid => uid !== target.id && !['user-25', 'user-26'].includes(uid));
 
-        // Ensure candidate pool has at least 2 distinct observers
+        // Ensure candidate pool has at least 2 distinct observers (fallback supplement only if needed)
         const otherCandidates = activeUsers.filter(u => u.id !== target.id && !candidateIds.includes(u.id));
         const crossTeam = otherCandidates.filter(u => u.team !== target.team);
         const supplementPool = crossTeam.length >= 2 ? crossTeam : otherCandidates;
@@ -125,10 +117,18 @@ export async function GET(request: Request) {
           suppIdx++;
         }
 
-        // Sort candidates: Note author = 20 pts, Praise sender = 5 pts, Initial assignment = 2 pts
+        // Rank candidates:
+        // 1. Assigned mates who wrote an observation note about this target (100 pts)
+        // 2. Assigned mates (50 pts)
+        // 3. Supplemented (0 pts)
         const selectedObserverIds = candidateIds.sort((a, b) => {
-          const scoreA = (noteObservers.includes(a) ? 20 : 0) + (praiseObservers.includes(a) ? 5 : 0) + (assignedObservers.includes(a) ? 2 : 0);
-          const scoreB = (noteObservers.includes(b) ? 20 : 0) + (praiseObservers.includes(b) ? 5 : 0) + (assignedObservers.includes(b) ? 2 : 0);
+          const isAssignedA = assignedObservers.includes(a);
+          const isAssignedB = assignedObservers.includes(b);
+          const hasNoteA = noteMap.has(`${a}->${target.id}`);
+          const hasNoteB = noteMap.has(`${b}->${target.id}`);
+
+          const scoreA = (isAssignedA ? 50 : 0) + (hasNoteA ? 50 : 0);
+          const scoreB = (isAssignedB ? 50 : 0) + (hasNoteB ? 50 : 0);
           return scoreB - scoreA;
         }).slice(0, 2);
 
@@ -136,7 +136,6 @@ export async function GET(request: Request) {
 
         selectedObserverIds.forEach(obsId => {
           const observer = userMap.get(obsId);
-          const matchedPraise = (praises || []).find(p => p.sender_user_id === obsId && p.recipient_user_id === target.id);
           const latestNote = noteMap.get(`${obsId}->${target.id}`) || '';
 
           allPairs.push({
@@ -148,8 +147,9 @@ export async function GET(request: Request) {
             targetId: target.id,
             targetName: target.name,
             targetTeam: target.team,
-            praiseMessage: matchedPraise?.refined_content || matchedPraise?.content || '',
-            noteMessage: latestNote
+            praiseMessage: '', // Mystery Mate Reveal focuses exclusively on observation notes from actual Mates
+            noteMessage: latestNote,
+            isRevealed: false
           });
         });
       });
