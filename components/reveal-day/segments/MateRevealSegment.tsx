@@ -127,7 +127,9 @@ export default function MateRevealSegment({
                   {getUserTitle(info.targetName)}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400 mt-1">나를 지켜봐 준 2명의 비타민</p>
+              <p className="text-[11.5px] text-sky-300/90 font-bold mt-1">
+                나를 지켜봐 준 비밀 메이트는 누구?
+              </p>
             </div>
 
             {/* Observers Cards */}
@@ -155,7 +157,7 @@ export default function MateRevealSegment({
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-slate-400">
-                          시크릿 메이트 #{obsIdx + 1}
+                          {info.targetName} 님의 비밀 메이트 #{obsIdx + 1}
                         </span>
                         {isRevealed ? (
                           <div className="flex items-center gap-1.5">
@@ -218,8 +220,8 @@ export default function MateRevealSegment({
                               <div className="text-sm font-bold text-slate-400 tracking-wider">
                                 ??? 님
                               </div>
-                              <div className="text-[11px] text-slate-600">
-                                비공개 메이트
+                              <div className="text-[11px] text-slate-500">
+                                누가 나를 챙겨줬을까요?
                               </div>
                             </div>
                           )}
@@ -232,7 +234,7 @@ export default function MateRevealSegment({
                           <div className="flex items-center justify-between text-[10px] text-sky-300 font-bold mb-1">
                             <div className="flex items-center gap-1">
                               <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                              <span className="tracking-wide">메이트의 관찰 메모</span>
+                              <span className="tracking-wide">{observer.observerName} 메이트가 남긴 관찰 메모</span>
                             </div>
                             {observer.noteMessage.length > 60 && (
                               <span className="text-[9px] text-sky-400/80 font-normal">스크롤하여 전체보기</span>
@@ -249,7 +251,7 @@ export default function MateRevealSegment({
                       {/* Gentle fallback if no observation note was recorded */}
                       {isRevealed && !observer.noteMessage && (
                         <div className="mt-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-[10.5px] text-slate-400 italic text-center">
-                          &ldquo;보이지 않는 곳에서 항상 응원하고 있었습니다! ✨&rdquo;
+                          &ldquo;{observer.observerName} 메이트가 보이지 않는 곳에서 항상 응원하고 있었습니다! ✨&rdquo;
                         </div>
                       )}
                     </div>
