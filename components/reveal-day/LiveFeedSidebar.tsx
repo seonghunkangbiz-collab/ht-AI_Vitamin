@@ -32,16 +32,41 @@ export default function LiveFeedSidebar({
   const [messages, setMessages] = useState<FeedMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const contentSignaturesRef = useRef<Map<string, number>>(new Map());
   const isMountedRef = useRef(true);
 
-  // Add message with deduplication
+  // Add message with dual deduplication (Exact ID + Content Time Window)
   const addMessage = useCallback((msg: FeedMessage) => {
+    // 1. Exact ID Deduplication
     if (seenIdsRef.current.has(msg.id)) return;
-    seenIdsRef.current.add(msg.id);
-    if (seenIdsRef.current.size > 200) {
-      const arr = Array.from(seenIdsRef.current);
-      seenIdsRef.current = new Set(arr.slice(-100));
+
+    // 2. Content + Sender + Recent Time Window Deduplication (Prevents duplicate broadcast & poll echo)
+    const cleanMsg = (msg.message || '').trim();
+    const contentKey = `${msg.senderName}_${msg.reaction}_${cleanMsg}`;
+    const now = Date.now();
+    const lastSeen = contentSignaturesRef.current.get(contentKey);
+
+    if (lastSeen && now - lastSeen < 3500) {
+      // Duplicate delivery within 3.5s window (e.g. from polling fallback)
+      seenIdsRef.current.add(msg.id);
+      return;
     }
+
+    seenIdsRef.current.add(msg.id);
+    contentSignaturesRef.current.set(contentKey, now);
+
+    if (seenIdsRef.current.size > 300) {
+      const arr = Array.from(seenIdsRef.current);
+      seenIdsRef.current = new Set(arr.slice(-150));
+    }
+
+    // Clean old signatures
+    if (contentSignaturesRef.current.size > 200) {
+      const entries = Array.from(contentSignaturesRef.current.entries());
+      const filtered = entries.filter(([_, t]) => now - t < 10000);
+      contentSignaturesRef.current = new Map(filtered);
+    }
+
     setMessages(prev => [...prev.slice(-40), msg]);
   }, []);
 

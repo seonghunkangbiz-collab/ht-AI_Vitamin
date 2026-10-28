@@ -55,6 +55,7 @@ export default function CheerOverlay({ eventId, showToasts = false }: CheerOverl
   const [toasts, setToasts] = useState<CheeringToast[]>([]);
   const isMountedRef = useRef(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const contentSignaturesRef = useRef<Map<string, number>>(new Map());
 
   // Spawn visual floating emojis
   const spawnParticles = useCallback((emoji: string, count = 2) => {
@@ -73,14 +74,37 @@ export default function CheerOverlay({ eventId, showToasts = false }: CheerOverl
     setParticles(prev => [...prev.slice(-25), ...newItems]);
   }, []);
 
-  // Add toast message with deduplication
+  // Add toast message with dual deduplication (Exact ID + Content Time Window)
   const addToast = useCallback((toast: CheeringToast) => {
+    // 1. Exact ID Deduplication
     if (seenIdsRef.current.has(toast.id)) return;
-    seenIdsRef.current.add(toast.id);
-    if (seenIdsRef.current.size > 200) {
-      const arr = Array.from(seenIdsRef.current);
-      seenIdsRef.current = new Set(arr.slice(-100));
+
+    // 2. Content + Sender + Recent Time Window Deduplication
+    const cleanMsg = (toast.message || '').trim();
+    const contentKey = `${toast.senderName}_${toast.emoji}_${cleanMsg}`;
+    const now = Date.now();
+    const lastSeen = contentSignaturesRef.current.get(contentKey);
+
+    if (lastSeen && now - lastSeen < 3500) {
+      seenIdsRef.current.add(toast.id);
+      return;
     }
+
+    seenIdsRef.current.add(toast.id);
+    contentSignaturesRef.current.set(contentKey, now);
+
+    if (seenIdsRef.current.size > 300) {
+      const arr = Array.from(seenIdsRef.current);
+      seenIdsRef.current = new Set(arr.slice(-150));
+    }
+
+    // Clean old signatures
+    if (contentSignaturesRef.current.size > 200) {
+      const entries = Array.from(contentSignaturesRef.current.entries());
+      const filtered = entries.filter(([_, t]) => now - t < 10000);
+      contentSignaturesRef.current = new Map(filtered);
+    }
+
     setToasts(prev => [...prev.slice(-3), toast]);
   }, []);
 

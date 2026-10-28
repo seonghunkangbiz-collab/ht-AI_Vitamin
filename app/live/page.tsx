@@ -45,6 +45,7 @@ function LiveAttendeeContent() {
   const [currentUserState, setUserState] = useState<User | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [myWinningPrize, setMyWinningPrize] = useState<{ prizeName: string; roundNumber: number } | null>(null);
   const [showWinnerModal, setShowWinnerModal] = useState<boolean>(false);
   const [myCapsule, setMyCapsule] = useState<any | null>(null);
@@ -58,6 +59,7 @@ function LiveAttendeeContent() {
   const [isSendingCheer, setIsSendingCheer] = useState(false);
   const [cheerFeedback, setCheerFeedback] = useState<string | null>(null);
   const liveChannelRef = useRef<any>(null);
+  const lastCheerSentTimeRef = useRef<number>(0);
 
   // Realtime hook
   const { publicState } = useRevealDayRealtime({ eventId });
@@ -166,6 +168,8 @@ function LiveAttendeeContent() {
 
   // Checkin Handler
   const handleCheckin = async () => {
+    if (isCheckingIn || isCheckedIn) return;
+    setIsCheckingIn(true);
     try {
       const res = await fetch('/api/reveal-day/interactions', {
         method: 'POST',
@@ -194,6 +198,8 @@ function LiveAttendeeContent() {
       }
     } catch (e: any) {
       alert(`네트워크 오류: ${e.message}`);
+    } finally {
+      setIsCheckingIn(false);
     }
   };
 
@@ -226,23 +232,32 @@ function LiveAttendeeContent() {
     }
   };
 
-  // Real-time Cheer / Reaction Sender
+  // Real-time Cheer / Reaction Sender with Debounce & Unified ID
   const handleSendCheer = async (reaction: string = 'clap', message?: string) => {
     const senderName = currentUserState?.name || '익명 메이트';
     const senderTeam = currentUserState?.team || '';
     const trimmedMessage = message?.trim();
 
+    // Debounce rapid double-taps on mobile buttons (450ms)
+    const now = Date.now();
+    if (now - lastCheerSentTimeRef.current < 450) {
+      return;
+    }
+    lastCheerSentTimeRef.current = now;
+
     if (isSendingCheer && trimmedMessage) return;
     if (trimmedMessage) setIsSendingCheer(true);
+
+    const cheerId = `cheer-${now}-${Math.random().toString(36).substring(2, 6)}`;
 
     // 1. Optimistic Realtime Broadcast for instant appearance on projector stage
     try {
       const payload = {
+        id: cheerId,
         reaction,
         message: trimmedMessage || undefined,
         senderName,
-        senderTeam,
-        id: `cheer-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+        senderTeam
       };
       if (liveChannelRef.current) {
         liveChannelRef.current.send({
@@ -273,12 +288,13 @@ function LiveAttendeeContent() {
       });
     } catch {}
 
-    // 3. Persist to API
+    // 3. Persist to API with identical cheerId to guarantee zero duplicate polling
     try {
       await fetch('/api/reveal-day/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: cheerId,
           eventId,
           action: 'cheer',
           reaction,
@@ -484,10 +500,12 @@ function LiveAttendeeContent() {
               </div>
             ) : (
               <button
+                type="button"
+                disabled={isCheckingIn}
                 onClick={handleCheckin}
-                className="w-full py-3.5 px-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
+                className="w-full py-3.5 px-4 rounded-2xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
               >
-                <span>체크인 / 준비 완료</span>
+                <span>{isCheckingIn ? '체크인 처리 중...' : '체크인 / 준비 완료'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}

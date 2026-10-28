@@ -205,7 +205,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'reaction' || action === 'cheer') {
-      const { reaction, message } = body;
+      const { reaction, message, id } = body;
       const validReactions = ['heart', 'clap', 'party', 'sparkle', 'fire', 'coffee', 'pizza', 'rocket'];
       const cleanReaction = validReactions.includes(reaction) ? reaction : 'heart';
       const cleanMessage = message ? String(message).trim().slice(0, 60) : null;
@@ -230,9 +230,13 @@ export async function POST(request: Request) {
         })
         .eq('event_id', eventId);
 
-      // 2. Persist in interactions
+      // 2. Persist in interactions (preserve client ID if provided for broadcast-poll deduplication)
+      const cheerItemId = (typeof id === 'string' && id.trim()) 
+        ? id.trim() 
+        : `cheer-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
       const cheerItem = {
-        id: `cheer-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        id: cheerItemId,
         eventId,
         userId: session.userId,
         senderName: session.name,
